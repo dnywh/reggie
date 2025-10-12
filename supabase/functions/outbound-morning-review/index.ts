@@ -47,7 +47,7 @@ Deno.serve(async (_req) => {
   try {
     // 1️⃣ Get all active users
     const { data: users, error: usersError } = await supabase.from("users")
-      .select("id, email, name").eq("is_active", true);
+      .select("id, email, name, temp_training_plan").eq("is_active", true);
     if (usersError) throw usersError;
     if (!users?.length) {
       return new Response("No users", {
@@ -59,7 +59,7 @@ Deno.serve(async (_req) => {
     const yDate = yesterday.toISOString().slice(0, 10);
     let sentCount = 0;
     const dateRange = 14;
-    for (const { id: user_id, email, name } of users) {
+    for (const { id: user_id, email, name, temp_training_plan } of users) {
       // 2️⃣ Get recent runs (last 14 days) for trend analysis
       // Could be shortened to last 7 days for brevity and context length
       const fourteenDaysAgo = new Date();
@@ -98,17 +98,19 @@ Deno.serve(async (_req) => {
         continue;
       }
 
-      if (!yesterdayRuns?.length) {
-        console.log(`No runs found for ${email} on ${yDate}`);
+      // All users who are is_active should have a training plan
+      // But just check anyway
+      // TODO: separate flow to guide users through setting up a training plan
+      if (!temp_training_plan) {
+        console.log(`Missing training plan for ${email}`);
         continue;
       }
-
-      // Format yesterday's runs for email display
-      const formattedYesterdayRuns = yesterdayRuns.map((r: any) => {
+      // Format yesterday's runs for email display (if any)
+      const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
         return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
           r.avg_pace_min_km ?? "?"
         } min/km, RPE ${r.rpe ?? "?"})`;
-      });
+      }) || [];
 
       // Format recent runs for LLM context (with days ago)
       const formattedRecentRuns = recentRuns?.map((r: any, _i: number) => {
@@ -131,20 +133,17 @@ You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morn
 You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
 Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
 `;
-      const userPrompt = `
-This runner is training for a half-marathon on **1 November 2025** (goal: ~1:55-2:00 finish).
+      // Use the user's training plan
+      const trainingPlanSection = temp_training_plan;
 
-TRAINING PROGRAM OVERVIEW:
-- 3-week program: Week 1 (build to 30-32km), Week 2 (peak 35-37km), Week 3 (taper 22-23km)
-- Key runs: Parkrun 5km (fast, 4:10-4:20/km) Saturdays, Community 5km (steady, 4:50-5:00/km) Tuesdays
-- Long run: 12km (Week 1) → 15-16km (Week 2) → taper
-- Target paces: Easy 5:15-5:40/km, Steady 4:50-5:00/km, Fast 4:10-4:20/km, Long 5:30-6:00/km
-- Sunday = rest day, Thursday = rest day
+      const userPrompt = `
+${trainingPlanSection}
 
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentRuns.join("\n")}
 
 ${getTrendAnalysis(recentRuns)}
+
 
 Give a single friendly paragraph with advice on exactly what to do today,
 keeping them on track for their training goals. It might be a run or rest day.
@@ -152,7 +151,7 @@ If it's a run, give a specific pace, effort level, and distance.
 Your paragraph will be sandwiched between "G'day, ${
         name || "mate"
       }. Reggie here." and "Keep it up, Reggie". Therefore do not include an intro or sign-off.
-Keep it short (under 80 words). Use Australian English. 
+Keep it short (under 80 words). Use Australian English.
 `;
       // 4️⃣ Call DeepSeek
       const llmResponse = await fetch(DEEPSEEK_API_URL, {
@@ -179,22 +178,28 @@ Keep it short (under 80 words). Use Australian English.
       });
       const llmJson = await llmResponse.json() as any;
       const advice = llmJson?.choices?.[0]?.message?.content?.trim() ??
-        "You're doing great.";
+        "You’re doing great.";
       // 5️⃣ Combine with greeting
       const text = [
-        `G'day, ${name || "mate"}. Reggie here.`,
+        `G’day, ${name || "mate"}. Reggie here.`,
         ``,
         advice,
         ``,
-        `Here's the full breakdown of yesterday's runs:`,
+        ...(yesterdayRuns?.length
+          ? [
+            `Here’s what you ran yesterday:`,
+            ``,
+            formattedYesterdayRuns.map((r: string) => `– ${r}`).join("\n"),
+            ``,
+          ]
+          : []),
+        `${
+          yesterdayRuns?.length ? "And here’s" : "Here’s"
+        } what's coming up this week:`,
         ``,
-        formattedYesterdayRuns.map((r: string) => `– ${r}`).join("\n"),
+        `– TODO: Upcoming items from your training plan will go here`,
         ``,
-        `And what’s coming up this week:`,
-        ``,
-        `– TODO`,
-        ``,
-        `As always, just flick me a reply if your plans change. We can adapt the schedule accordingly.`,
+        `As always, flick me a reply if your plans change. We can adapt the schedule accordingly.`,
         ``,
         `Keep it up,`,
         `Reg`,
