@@ -1,0 +1,21 @@
+# OS files
+.DS_Store
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.dev.vars
+
+# Supabase
+supabase/.temp
+supabase/.branches
+
+# IDE files
+.vscode/
+
+# Build outputs
+dist/
+build/
+.wrangler/
