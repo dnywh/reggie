@@ -26,7 +26,7 @@ Deno.serve(async (req: Request) => {
             return new Response(null, {
                 status: 302,
                 headers: {
-                    "Location": `https://reggie.run/strava/error?error=${
+                    "Location": `https://www.reggie.run/strava/error?error=${
                         encodeURIComponent(error)
                     }`,
                 },
@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
             return new Response(null, {
                 status: 302,
                 headers: {
-                    "Location": `https://reggie.run/strava/error?error=${
+                    "Location": `https://www.reggie.run/strava/error?error=${
                         encodeURIComponent(
                             "Missing authorization code or email",
                         )
@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
             return new Response(null, {
                 status: 302,
                 headers: {
-                    "Location": `https://reggie.run/strava/error?error=${
+                    "Location": `https://www.reggie.run/strava/error?error=${
                         encodeURIComponent("Invalid email format")
                     }`,
                 },
@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
             return new Response(null, {
                 status: 302,
                 headers: {
-                    "Location": `https://reggie.run/strava/error?error=${
+                    "Location": `https://www.reggie.run/strava/error?error=${
                         encodeURIComponent(
                             "User not found. Please email Reggie first to get started.",
                         )
@@ -155,7 +155,7 @@ Deno.serve(async (req: Request) => {
         return new Response(null, {
             status: 302,
             headers: {
-                "Location": "https://reggie.run/strava/success",
+                "Location": "https://www.reggie.run/strava/success",
             },
         });
     } catch (err) {
@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
         return new Response(null, {
             status: 302,
             headers: {
-                "Location": `https://reggie.run/strava/error?error=${
+                "Location": `https://www.reggie.run/strava/error?error=${
                     encodeURIComponent(errorMessage)
                 }`,
             },
