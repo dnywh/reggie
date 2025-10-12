@@ -2,6 +2,21 @@
 
 A personal assistant system built with Supabase and Cloudflare Workers for email processing and automation.
 
+```
+
+
+   ██                                 █
+   █░█                 █  █ ██ ██   ██▓
+    ███             ▓█ █ ██ █ █ █ █ █  ██
+      ██▓█ █      ██ ██ █ ░ █ █  █  █  █ █
+        ████ █ ███ █ █  ███ █    █ ██    ██
+            ███████ ▓█    █ ██  █░██
+                    ██ █        ███
+                   ██  ████     ███
+                    █             ███
+
+```
+
 ## Components
 
 - **Email Worker** (`workers/email-to-supabase/`): Processes incoming emails and forwards to Supabase

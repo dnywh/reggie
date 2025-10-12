@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connection Failed | reggie.run</title>
+  </head>
+  <body>
+    <h1>Connection failed</h1>
+
+    <p>
+      <strong>Error:</strong>
+      <br />
+      <span id="error-message">Something went wrong.</span>
+    </p>
+
+    <p>
+      Please try again or <a id="help-email-link" href="#">email me</a> if the
+      issue persists.
+    </p>
+
+    <p><a href="/">Home</a></p>
+
+    <script>
+      // Get error message from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get("error");
+      if (error) {
+        document.getElementById("error-message").textContent = error;
+      }
+
+      // Decode the base64-encoded email address (for assistance)
+      const encodedEmail = "bWFrZUByZWdnaWUucnVu";
+      const decodedEmail = atob(encodedEmail);
+      // Update the main email link
+      const helpEmailLink = document.getElementById("help-email-link");
+      helpEmailLink.href =
+        "mailto:" + decodedEmail + "?subject=Hey Reggie, I need help";
+    </script>
+  </body>
+</html>
