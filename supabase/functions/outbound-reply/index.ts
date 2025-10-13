@@ -7,11 +7,9 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-  // Checks for pending replies that haven't been sent in the last 5 minutes
-  // As in, we only reply to messages that were received more than 5 minutes ago
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  // Get all pending replies that haven't been sent yet
   const { data: pending, error } = await supabase.from("pending_replies")
-    .select("*").eq("sent", false).lt("created_at", fiveMinutesAgo);
+    .select("*").eq("sent", false);
   if (error) {
     console.error("Fetch error:", error);
     return new Response("Error", {
@@ -48,12 +46,12 @@ Deno.serve(async () => {
           "",
           "Thanks for emailing. I’d be happy to help.",
           "",
-          "The first step is connecting to Strava so I can keep an eye on your runs. Don’t worry, you can upload them as ‘private’ and they’ll still come through to me. You can also disconnect at any time.",
+          "The first step is connecting to Strava so I can keep an eye on your runs. Don’t worry, you can upload them as ‘private’. They’ll still come through to me. Let’s set it up now.",
           "",
-          "Let’s set it up now. Just click this link to tell Strava to share your runs with me:",
+          "Just click this link to authorise Strava:",
           stravaUrl,
           "",
-          `My human assistant Danny (${
+          `You can disconnect at any time. My human assistant Danny (${
             Deno.env.get("ASSISTANCE_EMAIL")
           }) is around if you have any questions.`,
           "",
