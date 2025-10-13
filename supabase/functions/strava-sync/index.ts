@@ -63,7 +63,6 @@ async function fetchAndStoreRuns(userId, accessToken) {
     return {
       user_id: userId,
       strava_id: a.id,
-      date: a.start_date_local.split("T")[0], // Keep for backward compatibility
       start_date_local: a.start_date_local, // Full local timestamp
       timezone: timezone, // Run-specific timezone
       distance_km,

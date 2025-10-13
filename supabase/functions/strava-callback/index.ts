@@ -142,8 +142,6 @@ Deno.serve(async (req: Request) => {
             athlete?: {
                 firstname?: string;
                 lastname?: string;
-                city?: string;
-                country?: string;
             };
         };
 

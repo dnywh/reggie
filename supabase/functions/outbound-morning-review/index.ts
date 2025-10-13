@@ -6,12 +6,9 @@ const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 // Check if a run happened "yesterday" based on the run's actual timezone
 function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   if (!run.start_date_local || !run.timezone) {
-    // Fallback to simple date comparison if we don't have timezone data
-    const runDate = new Date(run.date);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return runDate.toISOString().slice(0, 10) ===
-      yesterday.toISOString().slice(0, 10);
+    // Fallback: if no timezone data, assume it's not yesterday
+    // (since we can't determine timezone accurately)
+    return false;
   }
 
   // Use the run's actual timezone to determine if it was yesterday
@@ -121,24 +118,9 @@ Deno.serve(async (_req) => {
     for (
       const { id: user_id, email, name, temp_training_plan, timezone } of users
     ) {
-      // Debug logging for timezone calculations
-      console.log(`Debug for ${email}:`);
-      console.log(`- UTC time: ${new Date().toISOString()}`);
-      console.log(`- User timezone: ${timezone}`);
-      const userDate = timezone
-        ? new Date(new Date().toLocaleString("en-US", { timeZone: timezone }))
-        : new Date();
-      console.log(
-        `- User local time: ${
-          new Date().toLocaleString("en-US", { timeZone: timezone })
-        }`,
-      );
-      console.log(`- User hour: ${userDate.getHours()}`);
-      console.log(`- Is morning: ${isMorningInTimezone(timezone)}`);
-
       // Skip users who aren't in their morning hours (2:00 AM - 6:00 AM local time)
       if (!isMorningInTimezone(timezone)) {
-        console.log(`Skipping ${email} — not early morning in their timezone`);
+        console.log(`Skipping ${email} - not morning in their timezone`);
         continue;
       }
 
@@ -150,11 +132,11 @@ Deno.serve(async (_req) => {
         "runs",
       )
         .select(
-          "date, start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
+          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
         )
         .eq("user_id", user_id)
-        .gte("date", daysAgoStr)
-        .order("date", { ascending: false });
+        .gte("start_date_local", daysAgoStr + "T00:00:00Z")
+        .order("start_date_local", { ascending: false });
 
       if (recentRunsError) {
         console.error(
@@ -186,7 +168,7 @@ Deno.serve(async (_req) => {
 
       // Format recent runs for LLM context (with days ago)
       const formattedRecentRuns = recentRuns?.map((r: any, _i: number) => {
-        const runDate = new Date(r.date);
+        const runDate = new Date(r.start_date_local);
         const daysAgo = Math.floor(
           (new Date().getTime() - runDate.getTime()) / (1000 * 60 * 60 * 24),
         );
