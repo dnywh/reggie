@@ -11,7 +11,42 @@ const supabase = createClient(
 const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID")!;
 const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET")!;
 
-console.info("🦘 Reggie’s Strava callback running...");
+// Simple country-based timezone detection
+function getTimezoneFromCountry(country: string): string | null {
+    const countryLower = country.toLowerCase();
+
+    // Handle common country name variations
+    if (countryLower.includes("australia")) return "Australia/Sydney";
+    if (
+        countryLower.includes("united states") || countryLower.includes("usa")
+    ) return "America/New_York";
+    if (
+        countryLower.includes("united kingdom") || countryLower.includes("uk")
+    ) return "Europe/London";
+    if (countryLower.includes("canada")) return "America/Toronto";
+    if (countryLower.includes("germany")) return "Europe/Berlin";
+    if (countryLower.includes("france")) return "Europe/Paris";
+    if (countryLower.includes("japan")) return "Asia/Tokyo";
+    if (countryLower.includes("singapore")) return "Asia/Singapore";
+    if (countryLower.includes("new zealand")) return "Pacific/Auckland";
+    if (countryLower.includes("netherlands")) return "Europe/Amsterdam";
+    if (countryLower.includes("spain")) return "Europe/Madrid";
+    if (countryLower.includes("italy")) return "Europe/Rome";
+    if (countryLower.includes("sweden")) return "Europe/Stockholm";
+    if (countryLower.includes("norway")) return "Europe/Oslo";
+    if (countryLower.includes("denmark")) return "Europe/Copenhagen";
+    if (countryLower.includes("brazil")) return "America/Sao_Paulo";
+    if (countryLower.includes("mexico")) return "America/Mexico_City";
+    if (countryLower.includes("south africa")) return "Africa/Johannesburg";
+    if (countryLower.includes("india")) return "Asia/Kolkata";
+    if (countryLower.includes("china")) return "Asia/Shanghai";
+    if (countryLower.includes("south korea")) return "Asia/Seoul";
+    if (countryLower.includes("hong kong")) return "Asia/Hong_Kong";
+
+    return null; // Fall back to UTC
+}
+
+console.info("🦘 Reggie's Strava callback running...");
 
 Deno.serve(async (req: Request) => {
     try {
@@ -108,9 +143,19 @@ Deno.serve(async (req: Request) => {
         const name = data.athlete?.firstname ?? null;
 
         // Determine timezone based on athlete's location
-        const timezone = data.athlete?.city && data.athlete?.country
-            ? `${data.athlete.country}/${data.athlete.city}`
-            : null;
+        let timezone: string | null = null;
+        if (data.athlete?.country) {
+            // Try to map country to timezone
+            timezone = getTimezoneFromCountry(data.athlete.country);
+
+            // If mapping fails, fall back to UTC
+            if (!timezone) {
+                console.log(
+                    `No timezone mapping found for ${data.athlete.country}, falling back to UTC`,
+                );
+                timezone = "UTC";
+            }
+        }
 
         // 3️⃣ First check if user exists, then update the user record in Supabase by email
         const { data: _existingUser, error: lookupError } = await supabase
