@@ -3,6 +3,34 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
+// Timezone-aware date calculation functions
+function getYesterdayInTimezone(timezone: string | null): string {
+  const now = new Date();
+  const userDate = timezone
+    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
+    : now;
+
+  const yesterday = new Date(userDate);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  return yesterday.toISOString().slice(0, 10);
+}
+
+function getDaysAgoInTimezone(
+  timezone: string | null,
+  daysAgo: number,
+): string {
+  const now = new Date();
+  const userDate = timezone
+    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
+    : now;
+
+  const pastDate = new Date(userDate);
+  pastDate.setDate(pastDate.getDate() - daysAgo);
+
+  return pastDate.toISOString().slice(0, 10);
+}
+
 // Simple trend analysis for recent runs
 function getTrendAnalysis(runs: any[]) {
   if (!runs || runs.length < 2) return "";
@@ -47,24 +75,24 @@ Deno.serve(async (_req) => {
   try {
     // 1️⃣ Get all active users
     const { data: users, error: usersError } = await supabase.from("users")
-      .select("id, email, name, temp_training_plan").eq("is_active", true);
+      .select("id, email, name, temp_training_plan, timezone").eq(
+        "is_active",
+        true,
+      );
     if (usersError) throw usersError;
     if (!users?.length) {
       return new Response("No users", {
         status: 200,
       });
     }
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yDate = yesterday.toISOString().slice(0, 10);
     let sentCount = 0;
     const dateRange = 14;
-    for (const { id: user_id, email, name, temp_training_plan } of users) {
+    for (
+      const { id: user_id, email, name, temp_training_plan, timezone } of users
+    ) {
       // 2️⃣ Get recent runs (last 14 days) for trend analysis
       // Could be shortened to last 7 days for brevity and context length
-      const daysAgo = new Date();
-      daysAgo.setDate(daysAgo.getDate() - dateRange);
-      const daysAgoStr = daysAgo.toISOString().slice(0, 10);
+      const daysAgoStr = getDaysAgoInTimezone(timezone, dateRange);
 
       const { data: recentRuns, error: recentRunsError } = await supabase.from(
         "runs",
@@ -83,6 +111,7 @@ Deno.serve(async (_req) => {
       }
 
       // Get yesterday's runs specifically for email display
+      const yDate = getYesterdayInTimezone(timezone);
       const { data: yesterdayRuns, error: yesterdayRunsError } = await supabase
         .from("runs")
         .select("date, distance_km, duration_min, avg_pace_min_km, rpe, notes")
