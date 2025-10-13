@@ -3,6 +3,35 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
+// Check if a run happened "yesterday" based on the run's actual timezone
+function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
+  if (!run.start_date_local || !run.timezone) {
+    // Fallback to simple date comparison if we don't have timezone data
+    const runDate = new Date(run.date);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return runDate.toISOString().slice(0, 10) ===
+      yesterday.toISOString().slice(0, 10);
+  }
+
+  // Use the run's actual timezone to determine if it was yesterday
+  const runDate = new Date(run.start_date_local);
+  const now = new Date();
+
+  // Get "yesterday" in the run's timezone
+  const runTimezone = run.timezone;
+  const yesterdayInRunTimezone = new Date(
+    now.toLocaleString("en-US", { timeZone: runTimezone }),
+  );
+  yesterdayInRunTimezone.setDate(yesterdayInRunTimezone.getDate() - 1);
+
+  // Compare dates
+  const runDateStr = runDate.toISOString().slice(0, 10);
+  const yesterdayStr = yesterdayInRunTimezone.toISOString().slice(0, 10);
+
+  return runDateStr === yesterdayStr;
+}
+
 // Check if it's currently morning in the user's timezone
 function isMorningInTimezone(timezone: string | null): boolean {
   const now = new Date();
@@ -17,17 +46,6 @@ function isMorningInTimezone(timezone: string | null): boolean {
 }
 
 // Timezone-aware date calculation functions
-function getYesterdayInTimezone(timezone: string | null): string {
-  const now = new Date();
-  const userDate = timezone
-    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
-    : now;
-
-  const yesterday = new Date(userDate);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  return yesterday.toISOString().slice(0, 10);
-}
 
 function getDaysAgoInTimezone(
   timezone: string | null,
@@ -103,9 +121,24 @@ Deno.serve(async (_req) => {
     for (
       const { id: user_id, email, name, temp_training_plan, timezone } of users
     ) {
-      // Skip users who aren't in their morning hours (5:00 AM - 11:00 AM local time)
+      // Debug logging for timezone calculations
+      console.log(`Debug for ${email}:`);
+      console.log(`- UTC time: ${new Date().toISOString()}`);
+      console.log(`- User timezone: ${timezone}`);
+      const userDate = timezone
+        ? new Date(new Date().toLocaleString("en-US", { timeZone: timezone }))
+        : new Date();
+      console.log(
+        `- User local time: ${
+          new Date().toLocaleString("en-US", { timeZone: timezone })
+        }`,
+      );
+      console.log(`- User hour: ${userDate.getHours()}`);
+      console.log(`- Is morning: ${isMorningInTimezone(timezone)}`);
+
+      // Skip users who aren't in their morning hours (2:00 AM - 6:00 AM local time)
       if (!isMorningInTimezone(timezone)) {
-        console.log(`Skipping ${email} - not morning in their timezone`);
+        console.log(`Skipping ${email} — not early morning in their timezone`);
         continue;
       }
 
@@ -116,7 +149,9 @@ Deno.serve(async (_req) => {
       const { data: recentRuns, error: recentRunsError } = await supabase.from(
         "runs",
       )
-        .select("date, distance_km, duration_min, avg_pace_min_km, rpe, notes")
+        .select(
+          "date, start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
+        )
         .eq("user_id", user_id)
         .gte("date", daysAgoStr)
         .order("date", { ascending: false });
@@ -130,21 +165,10 @@ Deno.serve(async (_req) => {
       }
 
       // Get yesterday's runs specifically for email display
-      const yDate = getYesterdayInTimezone(timezone);
-      const { data: yesterdayRuns, error: yesterdayRunsError } = await supabase
-        .from("runs")
-        .select("date, distance_km, duration_min, avg_pace_min_km, rpe, notes")
-        .eq("user_id", user_id)
-        .eq("date", yDate)
-        .order("date", { ascending: false });
-
-      if (yesterdayRunsError) {
-        console.error(
-          `Error fetching yesterday's runs for ${email}:`,
-          yesterdayRunsError,
-        );
-        continue;
-      }
+      // We'll filter these from recentRuns using the new timezone-aware logic
+      const yesterdayRuns = recentRuns?.filter((run: any) =>
+        isRunFromYesterday(run, timezone)
+      ) || [];
 
       // All users who are is_active should have a training plan
       // But just check anyway
