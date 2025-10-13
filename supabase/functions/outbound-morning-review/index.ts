@@ -62,16 +62,16 @@ Deno.serve(async (_req) => {
     for (const { id: user_id, email, name, temp_training_plan } of users) {
       // 2️⃣ Get recent runs (last 14 days) for trend analysis
       // Could be shortened to last 7 days for brevity and context length
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - dateRange);
-      const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().slice(0, 10);
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - dateRange);
+      const daysAgoStr = daysAgo.toISOString().slice(0, 10);
 
       const { data: recentRuns, error: recentRunsError } = await supabase.from(
         "runs",
       )
         .select("date, distance_km, duration_min, avg_pace_min_km, rpe, notes")
         .eq("user_id", user_id)
-        .gte("date", fourteenDaysAgoStr)
+        .gte("date", daysAgoStr)
         .order("date", { ascending: false });
 
       if (recentRunsError) {
