@@ -3,6 +3,19 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
+// Check if it's currently morning in the user's timezone
+function isMorningInTimezone(timezone: string | null): boolean {
+  const now = new Date();
+  const userDate = timezone
+    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
+    : now;
+
+  const hour = userDate.getHours();
+  // Consider it "morning" between 2:00 AM and 6:00 AM local time
+  // This ensures emails are sent before people typically run (around 7 AM)
+  return hour >= 2 && hour < 6;
+}
+
 // Timezone-aware date calculation functions
 function getYesterdayInTimezone(timezone: string | null): string {
   const now = new Date();
@@ -90,6 +103,12 @@ Deno.serve(async (_req) => {
     for (
       const { id: user_id, email, name, temp_training_plan, timezone } of users
     ) {
+      // Skip users who aren't in their morning hours (5:00 AM - 11:00 AM local time)
+      if (!isMorningInTimezone(timezone)) {
+        console.log(`Skipping ${email} - not morning in their timezone`);
+        continue;
+      }
+
       // 2️⃣ Get recent runs (last 14 days) for trend analysis
       // Could be shortened to last 7 days for brevity and context length
       const daysAgoStr = getDaysAgoInTimezone(timezone, dateRange);
