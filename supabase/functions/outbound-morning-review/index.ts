@@ -34,8 +34,8 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   const yesterdayStr = formatter.format(yesterday);
 
   // For the run date, we need to interpret the stored local time in the run's timezone
-  // Since it's stored as local time in format "2025-10-14 06:25:16", we can extract the date part
-  const runDateStr = run.start_date_local.split(" ")[0]; // Extract YYYY-MM-DD part
+  // Since it's stored as local time in format "2025-10-14T06:25:16", we can extract the date part
+  const runDateStr = run.start_date_local.split("T")[0]; // Extract YYYY-MM-DD part
 
   console.log(
     `Date comparison: runDateStr: ${runDateStr}, yesterdayStr: ${yesterdayStr}`,
