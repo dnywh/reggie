@@ -237,16 +237,32 @@ Use curly quotes, not straight quotes. No em-dashes.
       const userPrompt = `
       TRAINING PLAN:
 ${trainingPlanSection}
-
+---
+TODAY'S DATE:
+${todayInUserTimezone}.
+---
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentRuns.join("\n")}
-
-Give a single friendly paragraph with advice on exactly what to do today in regards to my training plan, taking into account my recent activity.
-Today is ${todayInUserTimezone}.
+---
+Give a single friendly paragraph with advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
 Start with a variation of "Alright, ${name || "mate"}."
 Keep it short (under 80 words). Use Australian English.
 `;
+
+      const reachOutVariations = [
+        "As always, flick me a reply if your plans change. I’ll tweak the schedule accordingly.",
+        "Let me know if you have questions or need to change things up.",
+        "Any changes, let me know.",
+      ];
+
+      const signOffVariations = [
+        "Keep it up,",
+        "I’m proud of you,",
+        "Rock on,",
+        "Cheers,",
+        "Regards,",
+      ];
 
       console.log(`${email} – User prompt:`, userPrompt);
       // 4️⃣ Call DeepSeek
@@ -268,25 +284,25 @@ Keep it short (under 80 words). Use Australian English.
               content: userPrompt,
             },
           ],
-          temperature: 0.8,
+          temperature: 1.1,
           max_tokens: 180,
         }),
       });
       const llmJson = await llmResponse.json() as any;
       const advice = llmJson?.choices?.[0]?.message?.content?.trim() ??
-        "You’re doing great.";
+        `You’re doing great, ${name || "mate"}. Here are the latest numbers.`;
       // 5️⃣ Combine with greeting
       const text = [
-        `G’day, ${name || "mate"}. Reggie here.`,
-        ``,
         advice,
+        ``,
+        "---",
         ``,
         ...(yesterdayRuns?.length
           ? [
             `Here’s what you ran yesterday:`,
             ``,
             formattedYesterdayRuns.map((r: string) =>
-              `– ${r}`
+              `• ${r}`
             ).join("\n"),
             ``,
           ]
@@ -295,11 +311,15 @@ Keep it short (under 80 words). Use Australian English.
           yesterdayRuns?.length ? "And here’s" : "Here’s"
         } what's coming up this week:`,
         ``,
-        `– TODO: Upcoming items from your training plan will go here`,
+        `• Coming soon: Upcoming items from your training plan`,
         ``,
-        `As always, flick me a reply if your plans change. We can adapt the schedule accordingly.`,
+        // Randomly select a reach out variation (e.g. "Any changes, let me know.")
+        reachOutVariations[
+          Math.floor(Math.random() * reachOutVariations.length)
+        ],
         ``,
-        `Keep it up,`,
+        // Randomly select a sign-off variation (e.g. "Keep it up,")
+        signOffVariations[Math.floor(Math.random() * signOffVariations.length)],
         `Reg`,
       ].join("\n");
       // 6️⃣ Send via Resend
@@ -307,7 +327,7 @@ Keep it short (under 80 words). Use Australian English.
         await resend.emails.send({
           from: FROM_EMAIL,
           to: email,
-          subject: "Morning, mate. Reggie here.",
+          subject: `Morning, ${name || "mate"}. Reggie here`,
           text,
         });
         console.log(`${email} – Successfully sent morning review email!`);
