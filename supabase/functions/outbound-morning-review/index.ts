@@ -36,6 +36,9 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   console.log(
     `Date comparison: runDateStr: ${runDateStr}, yesterdayStr: ${yesterdayStr}`,
   );
+  console.log(
+    `Run details: start_date_local=${run.start_date_local}, timezone=${run.timezone}`,
+  );
 
   return runDateStr === yesterdayStr;
 }
@@ -171,7 +174,7 @@ Deno.serve(async (_req) => {
       // 2️⃣ Get recent runs first to determine the most accurate timezone
       // Use user's timezone as fallback for date range calculation
       const daysAgoStr = getDaysAgoInTimezone(timezone, dateRange);
-      console.log(`Days ago str: ${daysAgoStr}`);
+      console.log(`${email} – Date range query: >= ${daysAgoStr}T00:00:00`);
 
       const { data: recentRuns, error: recentRunsError } = await supabase.from(
         "runs",
@@ -180,7 +183,7 @@ Deno.serve(async (_req) => {
           "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
         )
         .eq("user_id", user_id)
-        .gte("start_date_local", daysAgoStr + "T00:00:00Z")
+        .gte("start_date_local", daysAgoStr + "T00:00:00")
         .order("start_date_local", { ascending: false });
 
       console.log({ recentRuns });

@@ -60,10 +60,22 @@ async function fetchAndStoreRuns(userId, accessToken) {
     const timezoneMatch = a.timezone?.match(/\([^)]+\)\s*(.+)/);
     const timezone = timezoneMatch ? timezoneMatch[1] : null;
 
+    // FIX: Remove Z suffix so PostgreSQL treats it as local time, not UTC
+    let start_date_local = a.start_date_local;
+    if (a.start_date_local && a.start_date_local.endsWith("Z")) {
+      start_date_local = a.start_date_local.slice(0, -1); // Remove the Z
+      console.log(
+        `🏃 Run ${a.id}: Removed Z suffix for proper local time storage`,
+      );
+      console.log(`  Original: ${a.start_date_local}`);
+      console.log(`  Stored as: ${start_date_local}`);
+      console.log(`  Timezone: ${timezone}`);
+    }
+
     return {
       user_id: userId,
       strava_id: a.id,
-      start_date_local: a.start_date_local, // Full local timestamp
+      start_date_local: start_date_local, // Z suffix removed for proper local time storage
       timezone: timezone, // Run-specific timezone
       distance_km,
       duration_min,
@@ -76,6 +88,20 @@ async function fetchAndStoreRuns(userId, accessToken) {
   });
   if (error) throw error;
   console.log(`✅ Synced ${formatted.length} runs for user ${userId}`);
+
+  // Let's check what actually got stored in the database
+  const { data: storedRuns } = await supabase.from("runs")
+    .select("strava_id, start_date_local, timezone")
+    .eq("user_id", userId)
+    .in("strava_id", formatted.map((f) => f.strava_id))
+    .order("start_date_local", { ascending: false });
+
+  console.log(`📊 What's actually stored in DB:`);
+  storedRuns?.forEach((run) => {
+    console.log(
+      `  Run ${run.strava_id}: ${run.start_date_local} (${run.timezone})`,
+    );
+  });
 }
 Deno.serve(async () => {
   try {
