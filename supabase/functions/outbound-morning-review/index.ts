@@ -8,6 +8,7 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   if (!run.start_date_local || !run.timezone) {
     // Fallback: if no timezone data, assume it's not yesterday
     // (since we can't determine timezone accurately)
+    console.log("No timezone data, assuming it's not yesterday");
     return false;
   }
 
@@ -15,16 +16,26 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   const runDate = new Date(run.start_date_local);
   const now = new Date();
 
-  // Get "yesterday" in the run's timezone
+  // Get "yesterday" in the run's timezone using proper timezone conversion
   const runTimezone = run.timezone;
-  const yesterdayInRunTimezone = new Date(
-    now.toLocaleString("en-US", { timeZone: runTimezone }),
-  );
-  yesterdayInRunTimezone.setDate(yesterdayInRunTimezone.getDate() - 1);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: runTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
-  // Compare dates
-  const runDateStr = runDate.toISOString().slice(0, 10);
-  const yesterdayStr = yesterdayInRunTimezone.toISOString().slice(0, 10);
+  // Get yesterday's date in the run's timezone
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = formatter.format(yesterday);
+
+  // Get the run's date in the run's timezone
+  const runDateStr = formatter.format(runDate);
+
+  console.log(
+    `Date comparison: runDateStr: ${runDateStr}, yesterdayStr: ${yesterdayStr}`,
+  );
 
   return runDateStr === yesterdayStr;
 }
@@ -32,31 +43,60 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
 // Check if it's currently morning in the user's timezone
 function isMorningInTimezone(timezone: string | null): boolean {
   const now = new Date();
-  const userDate = timezone
-    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
-    : now;
 
-  const hour = userDate.getHours();
+  if (!timezone) {
+    const hour = now.getHours();
+    console.log(`Hour (no timezone): ${hour}`);
+    console.log(`Is early morning: ${hour >= 3 && hour < 6}`);
+    return hour >= 3 && hour < 6;
+  }
+
+  // Use Intl.DateTimeFormat for reliable timezone conversion
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    hour12: false,
+  });
+
+  const hour = parseInt(formatter.format(now));
+  console.log(`Hour in ${timezone}: ${hour}`);
+  console.log(`Is early morning: ${hour >= 3 && hour < 6}`);
   // Consider it "morning" between 2:00 AM and 6:00 AM local time
   // This ensures emails are sent before people typically run (around 7 AM)
-  return hour >= 2 && hour < 6;
+  return hour >= 3 && hour < 6;
 }
 
 // Timezone-aware date calculation functions
-
 function getDaysAgoInTimezone(
   timezone: string | null,
   daysAgo: number,
 ): string {
   const now = new Date();
-  const userDate = timezone
-    ? new Date(now.toLocaleString("en-US", { timeZone: timezone }))
-    : now;
 
-  const pastDate = new Date(userDate);
+  if (!timezone) {
+    const pastDate = new Date(now);
+    pastDate.setDate(pastDate.getDate() - daysAgo);
+    console.log({ pastDate });
+    return pastDate.toISOString().slice(0, 10);
+  }
+
+  // Use proper timezone conversion to get the date in user's timezone
+  // en-CA provides YYYY-MM-DD format
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const pastDate = new Date(now);
   pastDate.setDate(pastDate.getDate() - daysAgo);
 
-  return pastDate.toISOString().slice(0, 10);
+  // Format the date in the user's timezone
+  const formattedDate = formatter.format(pastDate);
+  console.log({ pastDate, formattedDate });
+
+  return formattedDate;
 }
 
 // Simple trend analysis for recent runs
@@ -75,6 +115,10 @@ function getTrendAnalysis(runs: any[]) {
     older.reduce((sum: number, r: any) => sum + (r.avg_pace_min_km || 0), 0) /
     older.length;
 
+  console.log(
+    `Recent avg pace: ${recentAvgPace}, older avg pace: ${olderAvgPace}`,
+  );
+
   const recentDistance = recent.reduce(
     (sum: number, r: any) => sum + (r.distance_km || 0),
     0,
@@ -84,11 +128,17 @@ function getTrendAnalysis(runs: any[]) {
     0,
   );
 
+  console.log(
+    `Recent distance: ${recentDistance}, older distance: ${olderDistance}`,
+  );
+
   const trends = [];
   if (recentAvgPace < olderAvgPace - 0.1) trends.push("pace improving");
   if (recentAvgPace > olderAvgPace + 0.1) trends.push("pace slowing");
   if (recentDistance > olderDistance + 2) trends.push("volume increasing");
   if (recentDistance < olderDistance - 2) trends.push("volume decreasing");
+
+  console.log(`Trends: ${trends.join(", ")}`);
 
   return trends.length > 0 ? `Trends: ${trends.join(", ")}.` : "";
 }
@@ -118,15 +168,10 @@ Deno.serve(async (_req) => {
     for (
       const { id: user_id, email, name, temp_training_plan, timezone } of users
     ) {
-      // Skip users who aren't in their morning hours (2:00 AM - 6:00 AM local time)
-      if (!isMorningInTimezone(timezone)) {
-        console.log(`Skipping ${email} - not morning in their timezone`);
-        continue;
-      }
-
-      // 2️⃣ Get recent runs (last 14 days) for trend analysis
-      // Could be shortened to last 7 days for brevity and context length
+      // 2️⃣ Get recent runs first to determine the most accurate timezone
+      // Use user's timezone as fallback for date range calculation
       const daysAgoStr = getDaysAgoInTimezone(timezone, dateRange);
+      console.log(`Days ago str: ${daysAgoStr}`);
 
       const { data: recentRuns, error: recentRunsError } = await supabase.from(
         "runs",
@@ -138,10 +183,31 @@ Deno.serve(async (_req) => {
         .gte("start_date_local", daysAgoStr + "T00:00:00Z")
         .order("start_date_local", { ascending: false });
 
+      console.log({ recentRuns });
+
       if (recentRunsError) {
         console.error(
-          `Error fetching recent runs for ${email}:`,
+          `${email} – Error fetching recent runs:`,
           recentRunsError,
+        );
+        continue;
+      }
+
+      // Determine the most accurate timezone: use most recent run's timezone if available, otherwise user's timezone
+      const effectiveTimezone = recentRuns?.length > 0 && recentRuns[0].timezone
+        ? recentRuns[0].timezone
+        : timezone;
+
+      console.log(
+        `${email} – Using timezone: ${effectiveTimezone} (from ${
+          recentRuns?.length > 0 ? "most recent run" : "user profile"
+        })`,
+      );
+
+      // Skip users who aren't in their morning hours (3:00 AM - 6:00 AM local time)
+      if (!isMorningInTimezone(effectiveTimezone)) {
+        console.log(
+          `${email} – Skipping. Not early morning in their timezone (${effectiveTimezone})`,
         );
         continue;
       }
@@ -149,14 +215,16 @@ Deno.serve(async (_req) => {
       // Get yesterday's runs specifically for email display
       // We'll filter these from recentRuns using the new timezone-aware logic
       const yesterdayRuns = recentRuns?.filter((run: any) =>
-        isRunFromYesterday(run, timezone)
+        isRunFromYesterday(run, effectiveTimezone)
       ) || [];
+
+      console.log(`${email} – Yesterday's runs count: ${yesterdayRuns.length}`);
 
       // All users who are is_active should have a training plan
       // But just check anyway
       // TODO: separate flow to guide users through setting up a training plan
       if (!temp_training_plan) {
-        console.log(`Missing training plan for ${email}`);
+        console.log(`${email} – Missing training plan`);
         continue;
       }
       // Format yesterday's runs for email display (if any)
@@ -181,6 +249,8 @@ Deno.serve(async (_req) => {
           r.duration_min ?? "?"
         } min (${r.avg_pace_min_km ?? "?"} min/km, RPE ${r.rpe ?? "?"})`;
       }) || [];
+
+      console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
       // 3️⃣ Prepare DeepSeek prompt
       const systemPrompt = `
 You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
@@ -245,7 +315,9 @@ Keep it short (under 80 words). Use Australian English.
           ? [
             `Here’s what you ran yesterday:`,
             ``,
-            formattedYesterdayRuns.map((r: string) => `– ${r}`).join("\n"),
+            formattedYesterdayRuns.map((r: string) =>
+              `– ${r}`
+            ).join("\n"),
             ``,
           ]
           : []),
@@ -268,10 +340,10 @@ Keep it short (under 80 words). Use Australian English.
           subject: "Morning, mate",
           text,
         });
-        console.log(`Sent to ${email}`);
+        console.log(`${email} – Successfully sent morning review email!`);
         sentCount++;
       } catch (err) {
-        console.error(`Failed to send to ${email}:`, err);
+        console.error(`${email} – Failed to send email:`, err);
       }
     }
     return new Response(
