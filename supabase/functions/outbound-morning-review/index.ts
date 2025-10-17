@@ -12,12 +12,15 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
     return false;
   }
 
-  // Use the run's actual timezone to determine if it was yesterday
+  // Since start_date_local is now stored as local time (timestamp column),
+  // we need to interpret it correctly in the run's timezone
+  const runTimezone = run.timezone;
+
+  // Parse the stored local time and treat it as if it's in the run's timezone
   const runDate = new Date(run.start_date_local);
   const now = new Date();
 
-  // Get "yesterday" in the run's timezone using proper timezone conversion
-  const runTimezone = run.timezone;
+  // Get "yesterday" in the run's timezone
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: runTimezone,
     year: "numeric",
@@ -30,8 +33,9 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = formatter.format(yesterday);
 
-  // Get the run's date in the run's timezone
-  const runDateStr = formatter.format(runDate);
+  // For the run date, we need to interpret the stored local time in the run's timezone
+  // Since it's stored as local time in format "2025-10-14 06:25:16", we can extract the date part
+  const runDateStr = run.start_date_local.split(" ")[0]; // Extract YYYY-MM-DD part
 
   console.log(
     `Date comparison: runDateStr: ${runDateStr}, yesterdayStr: ${yesterdayStr}`,
@@ -102,49 +106,6 @@ function getDaysAgoInTimezone(
   return formattedDate;
 }
 
-// Simple trend analysis for recent runs
-function getTrendAnalysis(runs: any[]) {
-  if (!runs || runs.length < 2) return "";
-
-  const recent = runs.slice(0, 3); // Last 3 runs
-  const older = runs.slice(3, 6); // Previous 3 runs
-
-  if (recent.length === 0 || older.length === 0) return "";
-
-  const recentAvgPace =
-    recent.reduce((sum: number, r: any) => sum + (r.avg_pace_min_km || 0), 0) /
-    recent.length;
-  const olderAvgPace =
-    older.reduce((sum: number, r: any) => sum + (r.avg_pace_min_km || 0), 0) /
-    older.length;
-
-  console.log(
-    `Recent avg pace: ${recentAvgPace}, older avg pace: ${olderAvgPace}`,
-  );
-
-  const recentDistance = recent.reduce(
-    (sum: number, r: any) => sum + (r.distance_km || 0),
-    0,
-  );
-  const olderDistance = older.reduce(
-    (sum: number, r: any) => sum + (r.distance_km || 0),
-    0,
-  );
-
-  console.log(
-    `Recent distance: ${recentDistance}, older distance: ${olderDistance}`,
-  );
-
-  const trends = [];
-  if (recentAvgPace < olderAvgPace - 0.1) trends.push("pace improving");
-  if (recentAvgPace > olderAvgPace + 0.1) trends.push("pace slowing");
-  if (recentDistance > olderDistance + 2) trends.push("volume increasing");
-  if (recentDistance < olderDistance - 2) trends.push("volume decreasing");
-
-  console.log(`Trends: ${trends.join(", ")}`);
-
-  return trends.length > 0 ? `Trends: ${trends.join(", ")}.` : "";
-}
 Deno.serve(async (_req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -234,7 +195,7 @@ Deno.serve(async (_req) => {
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
         return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
           r.avg_pace_min_km ?? "?"
-        } min/km, RPE ${r.rpe ?? "?"})`;
+        } min/km`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -250,7 +211,7 @@ Deno.serve(async (_req) => {
           : `${daysAgo} days ago`;
         return `${dayLabel}: ${r.distance_km ?? "?"} km in ${
           r.duration_min ?? "?"
-        } min (${r.avg_pace_min_km ?? "?"} min/km, RPE ${r.rpe ?? "?"})`;
+        } min (${r.avg_pace_min_km ?? "?"} min/km`;
       }) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
@@ -260,28 +221,34 @@ You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morn
 You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
 Break it out into multiple lines (with empty lines between them) if necessary.
 Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
-Use curly quotes, not straight quotes. Avoid em-dashes.
+Use curly quotes, not straight quotes. No em-dashes.
 `;
-      // Use the user's training plan
+      // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
+      // Prepare today's date in the user's timezone for the LLM user prompt
+      const todayInUserTimezone = new Intl.DateTimeFormat("en-CA", {
+        timeZone: effectiveTimezone,
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(new Date());
 
       const userPrompt = `
+      TRAINING PLAN:
 ${trainingPlanSection}
 
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentRuns.join("\n")}
 
-${getTrendAnalysis(recentRuns)}
-
-
-Give a single friendly paragraph with advice on exactly what to do today,
-keeping them on track for their training goals. It might be a run or rest day.
-If it's a run, give a specific pace, effort level, and distance.
-Your paragraph will be sandwiched between "G'day, ${
-        name || "mate"
-      }. Reggie here." and "Keep it up, Reggie". Therefore do not include an intro or sign-off.
+Give a single friendly paragraph with advice on exactly what to do today in regards to my training plan, taking into account my recent activity.
+Today is ${todayInUserTimezone}.
+If the training plan suggests a run, provide a specific distance and pace.
+Start with a variation of "Alright, ${name || "mate"}."
 Keep it short (under 80 words). Use Australian English.
 `;
+
+      console.log(`${email} – User prompt:`, userPrompt);
       // 4️⃣ Call DeepSeek
       const llmResponse = await fetch(DEEPSEEK_API_URL, {
         method: "POST",
@@ -340,7 +307,7 @@ Keep it short (under 80 words). Use Australian English.
         await resend.emails.send({
           from: FROM_EMAIL,
           to: email,
-          subject: "Morning, mate",
+          subject: "Morning, mate. Reggie here.",
           text,
         });
         console.log(`${email} – Successfully sent morning review email!`);

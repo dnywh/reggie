@@ -60,14 +60,12 @@ async function fetchAndStoreRuns(userId, accessToken) {
     const timezoneMatch = a.timezone?.match(/\([^)]+\)\s*(.+)/);
     const timezone = timezoneMatch ? timezoneMatch[1] : null;
 
-    // FIX: Remove Z suffix so PostgreSQL treats it as local time, not UTC
+    // Store Strava's local time directly (timestamp column, no timezone conversion)
     let start_date_local = a.start_date_local;
     if (a.start_date_local && a.start_date_local.endsWith("Z")) {
       start_date_local = a.start_date_local.slice(0, -1); // Remove the Z
-      console.log(
-        `🏃 Run ${a.id}: Removed Z suffix for proper local time storage`,
-      );
-      console.log(`  Original: ${a.start_date_local}`);
+      console.log(`🏃 Run ${a.id}: Storing local time directly`);
+      console.log(`  Strava local: ${a.start_date_local}`);
       console.log(`  Stored as: ${start_date_local}`);
       console.log(`  Timezone: ${timezone}`);
     }
@@ -75,7 +73,7 @@ async function fetchAndStoreRuns(userId, accessToken) {
     return {
       user_id: userId,
       strava_id: a.id,
-      start_date_local: start_date_local, // Z suffix removed for proper local time storage
+      start_date_local: start_date_local, // Local time stored directly (timestamp column)
       timezone: timezone, // Run-specific timezone
       distance_km,
       duration_min,
