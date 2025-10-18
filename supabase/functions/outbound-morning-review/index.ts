@@ -106,7 +106,13 @@ function getDaysAgoInTimezone(
   return formattedDate;
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  // Deno.serve(async (_req) => {
+  // Parse headers for testing overrides
+  // TODO: can't seem to get working
+  const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
+  // const skipMorningCheck = true;
+  console.log({ skipMorningCheck });
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -169,11 +175,19 @@ Deno.serve(async (_req) => {
       );
 
       // Skip users who aren't in their morning hours (3:00 AM - 6:00 AM local time)
-      if (!isMorningInTimezone(effectiveTimezone)) {
+      // UNLESS we're in testing mode with skip_morning_check=true
+      if (!skipMorningCheck && !isMorningInTimezone(effectiveTimezone)) {
         console.log(
           `${email} – Skipping. Not early morning in their timezone (${effectiveTimezone})`,
         );
         continue;
+      }
+
+      // Log when morning check is skipped for testing
+      if (skipMorningCheck) {
+        console.log(
+          `${email} – Morning check skipped for testing (skip_morning_check=true)`,
+        );
       }
 
       // Get yesterday's runs specifically for email display
@@ -195,7 +209,7 @@ Deno.serve(async (_req) => {
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
         return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
           r.avg_pace_min_km ?? "?"
-        } min/km`;
+        } min/km average pace)`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -211,7 +225,7 @@ Deno.serve(async (_req) => {
           : `${daysAgo} days ago`;
         return `${dayLabel}: ${r.distance_km ?? "?"} km in ${
           r.duration_min ?? "?"
-        } min (${r.avg_pace_min_km ?? "?"} min/km`;
+        } min (${r.avg_pace_min_km ?? "?"} min/km)`;
       }) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
@@ -219,9 +233,9 @@ Deno.serve(async (_req) => {
       const systemPrompt = `
 You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
 You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
-Break it out into multiple lines (with empty lines between them) if necessary.
+Be liberal with line breaks for readability.
 Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
-Use curly quotes, not straight quotes. No em-dashes.
+Use curly quotes (‘ and ’) for apostrophes, not straight quotes (“ and ”). Don't use em-dashes.
 `;
       // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
@@ -242,11 +256,11 @@ TODAY'S DATE:
 ${todayInUserTimezone}.
 ---
 RECENT ACTIVITY (last ${dateRange} days):
-${formattedRecentRuns.join("\n")}
+${formattedRecentRuns.join(", ")}
 ---
-Give a single friendly paragraph with advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
+Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "Alright, ${name || "mate"}."
+Start with a variation of "Alright, ${name || "mate"}.", then a new line.
 Keep it short (under 80 words). Use Australian English.
 `;
 
@@ -261,7 +275,7 @@ Keep it short (under 80 words). Use Australian English.
         "I’m proud of you,",
         "Rock on,",
         "Cheers,",
-        "Regards,",
+        "Yours,",
       ];
 
       console.log(`${email} – User prompt:`, userPrompt);
@@ -295,21 +309,17 @@ Keep it short (under 80 words). Use Australian English.
       const text = [
         advice,
         ``,
-        "---",
-        ``,
         ...(yesterdayRuns?.length
           ? [
             `Here’s what you ran yesterday:`,
             ``,
             formattedYesterdayRuns.map((r: string) =>
               `• ${r}`
-            ).join("\n"),
+            ).join(", "),
             ``,
           ]
           : []),
-        `${
-          yesterdayRuns?.length ? "And here’s" : "Here’s"
-        } what's coming up this week:`,
+        `Here’s what's coming up this week for you:`,
         ``,
         `• Coming soon: Upcoming items from your training plan`,
         ``,
@@ -327,7 +337,7 @@ Keep it short (under 80 words). Use Australian English.
         await resend.emails.send({
           from: FROM_EMAIL,
           to: email,
-          subject: `Morning, ${name || "mate"}. Reggie here`,
+          subject: `Morning, mate. Reggie here`,
           text,
         });
         console.log(`${email} – Successfully sent morning review email!`);
