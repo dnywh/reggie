@@ -124,12 +124,20 @@ Deno.serve(async (req) => {
       subject: subject ?? null,
       body: body ?? null,
     });
+
+    console.log("📝 Created message:", JSON.stringify(createdMsg, null, 2));
+
     // New: line up a response for later
     // Handled via a cron job a few minutes later
-    await create("pending_replies", {
+    console.log("📋 Creating pending_reply with message_id:", createdMsg.id);
+    const createdPendingReply = await create("pending_replies", {
       email: from,
       message_id: createdMsg.id,
     });
+    console.log(
+      "📋 Created pending_reply:",
+      JSON.stringify(createdPendingReply, null, 2),
+    );
     // 4) Update conversation timestamp (best-effort)
     await patch("conversations", `id=eq.${encodeURIComponent(convoId)}`, {
       last_message_at: new Date().toISOString(),

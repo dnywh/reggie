@@ -60,7 +60,8 @@ Deno.serve(async () => {
         ? `
           <p>G'day, Reggie here.</p>
           <p>Thanks for emailing. I'd be happy to help.</p>
-          <p>The first step is connecting to Strava so I can keep an eye on your runs and provide guidance. Don't worry, you can still upload any runs you want as 'private' from your friends, they'll still come through to me. Let's set it up now:</p>
+          <p>The first step is connecting to Strava so I can keep an eye on your runs. You can still upload them as ‘private’ from the feed. They’ll still come through to me.</p>
+          <p>Let's set it up now:</p>
 
           <a href="${stravaUrl}" style="display: block; margin-left: max(24px, 1em);">
           <img src="${SUPABASE_URL}/storage/v1/object/public/static/strava-connect.png" 
@@ -110,12 +111,37 @@ Deno.serve(async () => {
       // If the user is NOT new, assume they need a 'Wizard of Oz' style update
       // So send a notification email to Danny to let him work on it
       if (!isNewUser) {
+        // DEBUG: Try to fetch the message content
+        console.log(
+          "🔍 Fetching message content for message_id:",
+          reply.message_id,
+        );
+        const { data: message, error: messageError } = await supabase
+          .from("messages")
+          .select("id, subject, body")
+          .eq("id", reply.message_id)
+          .single();
+
+        if (messageError) {
+          console.log("❌ Message fetch error:", messageError);
+        } else {
+          console.log("✅ Message found:", JSON.stringify(message, null, 2));
+        }
+
         console.log("📧 Sending notification email to Danny");
         await resend.emails.send({
           from: FROM_EMAIL,
-          to: ASSISTANCE_EMAIL,
-          subject: "New user reply",
-          html: `New user reply: ${reply.email}`,
+          to: ASSISTANCE_EMAIL!,
+          subject: `New reply from ${user.name || reply.email}`,
+          html: `
+            <p><strong>Name:</strong> ${user.name || "No name"}</p>
+            <p><strong>Email:</strong> ${reply.email}</p>
+            <p><strong>Message ID:</strong> ${message?.id}</p>
+            <p><strong>Subject:</strong> ${message?.subject || "No subject"}</p>
+            <p><strong>Body:</strong><br />
+              <em>${message?.body || "No content"}</em>
+           </p>
+          `,
         });
         console.log(`✅ Sent notification email to Danny`);
       }
