@@ -107,13 +107,13 @@ function getDaysAgoInTimezone(
   return formattedDate;
 }
 
-// Deno.serve(async (req) => {
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  // Deno.serve(async (_req) => {
   // Parse headers for testing overrides
   // TODO: can't seem to get working
-  // const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
-  const skipMorningCheck = true;
-  console.log({ skipMorningCheck });
+  const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
+  // const skipMorningCheck = true;
+  // console.log({ skipMorningCheck });
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
