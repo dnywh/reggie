@@ -1,13 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 import { Resend } from "npm:resend";
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
 const TEST_EMAIL = Deno.env.get("TEST_EMAIL");
+const REGGIE_URL = Deno.env.get("REGGIE_URL");
 
 Deno.serve(async () => {
   const recipient = ""; // Falsy if empty string
   const to = recipient ? recipient : TEST_EMAIL;
+
+  const includePreferencesLink = true;
 
   try {
     const subject = "Hey there";
@@ -22,6 +24,17 @@ Deno.serve(async () => {
 
       <p>Thanks for testing!<br />
       Reggie</p>
+
+      ${
+      includePreferencesLink
+        ? `
+        <footer>
+          <p>---</p>
+          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?email=${to}">edit your preferences</a> at any time.</p>
+        </footer>
+      `
+        : ""
+    }
       `;
 
     await resend.emails.send({

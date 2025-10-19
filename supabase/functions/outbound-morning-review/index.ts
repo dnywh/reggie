@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
+const REGGIE_URL = Deno.env.get("REGGIE_URL");
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
 // Check if a run happened "yesterday" based on the run's actual timezone
@@ -17,7 +18,7 @@ function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   const runTimezone = run.timezone;
 
   // Parse the stored local time and treat it as if it's in the run's timezone
-  const runDate = new Date(run.start_date_local);
+  // const runDate = new Date(run.start_date_local);
   const now = new Date();
 
   // Get "yesterday" in the run's timezone
@@ -106,12 +107,12 @@ function getDaysAgoInTimezone(
   return formattedDate;
 }
 
-Deno.serve(async (req) => {
-  // Deno.serve(async (_req) => {
+// Deno.serve(async (req) => {
+Deno.serve(async (_req) => {
   // Parse headers for testing overrides
   // TODO: can't seem to get working
-  const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
-  // const skipMorningCheck = true;
+  // const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
+  const skipMorningCheck = true;
   console.log({ skipMorningCheck });
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -233,7 +234,6 @@ Deno.serve(async (req) => {
       const systemPrompt = `
 You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
 You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
-Be liberal with line breaks for readability.
 Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
 Use curly quotes (‘ and ’) for apostrophes, not straight quotes (“ and ”). Don't use em-dashes.
 `;
@@ -260,7 +260,7 @@ ${formattedRecentRuns.join(", ")}
 ---
 Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "Alright, ${name || "mate"}.", then a new line.
+Start with a variation of "Alright, ${name || "mate"}.".
 Keep it short (under 80 words). Use Australian English.
 `;
 
@@ -317,36 +317,49 @@ Keep it short (under 80 words). Use Australian English.
         }),
       });
       const llmJson = await llmResponse.json() as any;
+      // Get the LLM response or fall back to a generic message
       const advice = llmJson?.choices?.[0]?.message?.content?.trim() ??
-        `You’re doing great, ${name || "mate"}. Here are the latest numbers.`;
-      // 5️⃣ Combine with greeting
-      const text = [
-        advice,
-        ``,
-        ...(yesterdayRuns?.length
-          ? [
-            `Here’s what you ran yesterday:`,
-            ``,
-            formattedYesterdayRuns.map((r: string) =>
-              `• ${r}`
-            ).join(", "),
-            ``,
-          ]
-          : []),
-        `Here’s what's coming up this week for you:`,
-        ``,
-        `• Coming soon (sorry!)`,
-        ``,
+        `<p>You’re doing great, ${
+          name || "mate"
+        }. Here are the latest numbers.</p>`;
+
+      const html = `
+        <p>${advice}</p>
+        ${
+        yesterdayRuns?.length
+          ? `<p>Here’s what you ran yesterday:</p>
+          <ul>
+            ${
+            formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)
+          }
+          </ul>
+          `
+          : ""
+      }
+        <p>Here’s what’s coming up this week:</p>
+        <ul>
+          <li>Tomorrow: coming soon (sorry!)</li>
+        </ul>
+        <p>
+        ${
         // Randomly select a reach out variation (e.g. "Any changes, let me know.")
         reachOutVariations[
           Math.floor(Math.random() * reachOutVariations.length)
-        ],
-        ``,
+        ]}</p>
+        <p>${
         // Randomly select a sign-off variation (e.g. "Keep it up,")
-        signOffVariations[Math.floor(Math.random() * signOffVariations.length)],
+        signOffVariations[
+          Math.floor(Math.random() * signOffVariations.length)
+        ]}<br />
+       ${
         // Randomly select a name variation (e.g. "Reg")
-        nameVariations[Math.floor(Math.random() * nameVariations.length)],
-      ].join("\n");
+        nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
+        <footer>
+          <p>---</p>
+          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
+        </footer>
+        `;
+
       // 6️⃣ Send via Resend
       try {
         await resend.emails.send({
@@ -356,7 +369,7 @@ Keep it short (under 80 words). Use Australian English.
           subject: subjectVariations[
             Math.floor(Math.random() * subjectVariations.length)
           ],
-          text,
+          html,
         });
         console.log(`${email} – Successfully sent morning review email!`);
         sentCount++;
