@@ -6,19 +6,30 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const REGGIE_URL = Deno.env.get("REGGIE_URL");
 const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
+const ASSISTANCE_EMAIL = Deno.env.get("ASSISTANCE_EMAIL");
+
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+  console.log("🔍 Starting outbound-reply function");
+
   // Get all pending replies that haven't been sent yet
   const { data: pending, error } = await supabase.from("pending_replies")
     .select("*").eq("sent", false);
+
   if (error) {
-    console.error("Fetch error:", error);
+    console.error("❌ Fetch error:", error);
     return new Response("Error", {
       status: 500,
     });
   }
+
+  console.log(`📋 Found ${pending?.length || 0} pending replies`);
+
   for (const reply of pending ?? []) {
     try {
+      console.log("🔄 Processing reply:", JSON.stringify(reply, null, 2));
+
       // Look up user to check if they're new or existing
       const { data: user, error: userError } = await supabase.from("users")
         .select("id, name, is_active")
@@ -26,12 +37,15 @@ Deno.serve(async () => {
         .single();
 
       if (userError) {
-        console.error(`Failed to lookup user ${reply.email}:`, userError);
+        console.error(`❌ Failed to lookup user ${reply.email}:`, userError);
         continue;
       }
 
+      console.log("👤 User found:", JSON.stringify(user, null, 2));
+
       // Determine if this is a new user (not active yet)
       const isNewUser = !user.is_active;
+      console.log(`🎯 User type: ${isNewUser ? "NEW" : "EXISTING"}`);
 
       // Generate message content based on user status
       // TODO: Test https://www.strava.com/oauth/mobile/authorize. Does it open in the Strava app?
@@ -44,9 +58,9 @@ Deno.serve(async () => {
 
       const html = isNewUser
         ? `
-          <p>G’day, Reggie here.</p>
-          <p>Thanks for emailing. I’d be happy to help.</p>
-          <p>The first step is connecting to Strava so I can keep an eye on your runs and provide guidance. Don’t worry, you can still upload any runs you want as ‘private’ from your friends, they’ll still come through to me. Let’s set it up now:</p>
+          <p>G'day, Reggie here.</p>
+          <p>Thanks for emailing. I'd be happy to help.</p>
+          <p>The first step is connecting to Strava so I can keep an eye on your runs and provide guidance. Don't worry, you can still upload any runs you want as 'private' from your friends, they'll still come through to me. Let's set it up now:</p>
 
           <a href="${stravaUrl}" style="display: block; margin-left: max(24px, 1em);">
           <img src="${SUPABASE_URL}/storage/v1/object/public/static/strava-connect.png" 
@@ -54,26 +68,19 @@ Deno.serve(async () => {
               style="width: auto; height: 40px;" />
           </a>
         
-          <p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${
-          Deno.env.get("ASSISTANCE_EMAIL")
-        }?subject=Hey Danny, I need help">${
-          Deno.env.get("ASSISTANCE_EMAIL")
-        }</a>) is around if you have any questions.</p>
+          <p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
           <p>Cheers,<br />
           Reg</p>
           
           <footer>
           <p>---</p>
-           <p>P.S. if that Strava button didn’t work, try using <a href="${stravaUrl}">this link</a> instead.</p>
+           <p>P.S. if that Strava button didn't work, try using <a href="${stravaUrl}">this link</a> instead.</p>
           </footer>
         `
         : `
           <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
-          <p>I’ll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${
-          Deno.env.get("ASSISTANCE_EMAIL")
-        }?subject=Hey Danny, I need help">${
-          Deno.env.get("ASSISTANCE_EMAIL")
-        }</a>) if you need help with something other than your training program.</p>
+          <p>I'll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>)
+          if you need help with something other than your training program.</p>
           <p>Cheers,<br />
           Reg</p>
 
@@ -83,6 +90,7 @@ Deno.serve(async () => {
         </footer>
         `;
 
+      console.log("📧 Sending email to:", reply.email);
       await resend.emails.send({
         from: FROM_EMAIL,
         to: reply.email,
@@ -90,6 +98,7 @@ Deno.serve(async () => {
         html,
       });
 
+      console.log("✅ Marking reply as sent");
       await supabase.from("pending_replies").update({
         sent: true,
       }).eq("id", reply.id);
@@ -97,9 +106,24 @@ Deno.serve(async () => {
       console.log(
         `✅ Replied to ${reply.email} (${isNewUser ? "new" : "existing"} user)`,
       );
+
+      // If the user is NOT new, assume they need a 'Wizard of Oz' style update
+      // So send a notification email to Danny to let him work on it
+      if (!isNewUser) {
+        console.log("📧 Sending notification email to Danny");
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: ASSISTANCE_EMAIL,
+          subject: "New user reply",
+          html: `New user reply: ${reply.email}`,
+        });
+        console.log(`✅ Sent notification email to Danny`);
+      }
     } catch (err) {
-      console.error(`Failed to reply to ${reply.email}:`, err);
+      console.error(`❌ Failed to reply to ${reply.email}:`, err);
     }
   }
+
+  console.log("🏁 Finished processing all replies");
   return new Response("OK");
 });
