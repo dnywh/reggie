@@ -194,20 +194,19 @@
 
         console.log("Parsed values:", { name, email });
 
-        // Validate required parameters
-        if (!name || !email) {
+        // Validate required parameters (only email is required)
+        if (!email) {
           showMessage(
-            "Missing required parameters. Please use the link from your email.",
+            "Missing email parameter. Please use the link from your email.",
             "error"
           );
           document.getElementById("greeting").textContent = "Invalid access";
           return;
         }
 
-        // Display personalized greeting
-        document.getElementById(
-          "greeting"
-        ).textContent = `G'day ${name}! ${email}`;
+        // Display personalized greeting (name is optional)
+        const greeting = name ? `G'day ${name}!` : "G'day!";
+        document.getElementById("greeting").textContent = greeting;
 
         // Set up button event listeners
         setupEventListeners();

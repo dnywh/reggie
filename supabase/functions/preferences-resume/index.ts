@@ -15,10 +15,10 @@ Deno.serve(async (req: Request) => {
 
         const { name, email } = await req.json();
 
-        // Validate required parameters
-        if (!name || !email) {
+        // Validate required parameters (only email is required)
+        if (!email) {
             return new Response(
-                JSON.stringify({ error: "Missing required parameters" }),
+                JSON.stringify({ error: "Missing email parameter" }),
                 {
                     status: 400,
                     headers: { "Content-Type": "application/json" },
@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
             SUPABASE_SERVICE_ROLE_KEY!,
         );
 
-        // Validate user exists and parameters match
+        // Validate user exists
         const { data: user, error: userError } = await supabase
             .from("users")
             .select("id, name, email")
@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
             console.error("User validation failed:", userError);
             return new Response(
                 JSON.stringify({
-                    error: "User not found or invalid parameters",
+                    error: "User not found",
                 }),
                 {
                     status: 404,
@@ -63,20 +63,8 @@ Deno.serve(async (req: Request) => {
             );
         }
 
-        // Verify name matches (case insensitive)
-        if (user.name?.toLowerCase() !== name.toLowerCase()) {
-            console.error("Name mismatch:", {
-                provided: name,
-                stored: user.name,
-            });
-            return new Response(
-                JSON.stringify({ error: "Name does not match" }),
-                {
-                    status: 400,
-                    headers: { "Content-Type": "application/json" },
-                },
-            );
-        }
+        // Use provided name or fall back to stored name
+        const displayName = name || user.name || "there";
 
         // Generate unique token
         const token = crypto.randomUUID();
@@ -108,7 +96,7 @@ Deno.serve(async (req: Request) => {
             `${SUPABASE_URL}/functions/v1/preferences-confirm-resume?token=${token}`;
 
         const emailContent = [
-            `G'day ${name},`,
+            `G'day ${displayName},`,
             "",
             "You've requested to resume Reggie's daily training emails.",
             "",

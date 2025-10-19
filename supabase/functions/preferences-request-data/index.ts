@@ -16,10 +16,10 @@ Deno.serve(async (req: Request) => {
 
         const { name, email } = await req.json();
 
-        // Validate required parameters
-        if (!name || !email) {
+        // Validate required parameters (only email is required)
+        if (!email) {
             return new Response(
-                JSON.stringify({ error: "Missing required parameters" }),
+                JSON.stringify({ error: "Missing email parameter" }),
                 {
                     status: 400,
                     headers: { "Content-Type": "application/json" },
@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
             SUPABASE_SERVICE_ROLE_KEY!,
         );
 
-        // Validate user exists and parameters match
+        // Validate user exists
         const { data: user, error: userError } = await supabase
             .from("users")
             .select(
@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
             console.error("User validation failed:", userError);
             return new Response(
                 JSON.stringify({
-                    error: "User not found or invalid parameters",
+                    error: "User not found",
                 }),
                 {
                     status: 404,
@@ -66,27 +66,14 @@ Deno.serve(async (req: Request) => {
             );
         }
 
-        // Verify name matches (case insensitive)
-        if (user.name?.toLowerCase() !== name.toLowerCase()) {
-            console.error("Name mismatch:", {
-                provided: name,
-                stored: user.name,
-            });
-            return new Response(
-                JSON.stringify({ error: "Name does not match" }),
-                {
-                    status: 400,
-                    headers: { "Content-Type": "application/json" },
-                },
-            );
-        }
+        // Use provided name or fall back to stored name
+        const displayName = name || user.name || "there";
 
         // Send notification email to Danny (assistance email)
         const notificationContent = [
             "Data Access Request",
             "",
-            `User: ${user.name} (${user.email})`,
-            `Athlete ID: ${user.strava_athlete_id}`,
+            `User: ${displayName} (${user.email})`,
             `Timezone: ${user.timezone}`,
             `Account Created: ${user.created_at}`,
             `Active: ${user.is_active ? "Yes" : "No"}`,
@@ -109,7 +96,7 @@ Deno.serve(async (req: Request) => {
 
         // Send confirmation email to user
         const userConfirmationContent = [
-            `G'day ${name},`,
+            `G'day ${displayName},`,
             "",
             "We've received your request for a copy of your data.",
             "",
