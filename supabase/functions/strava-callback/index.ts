@@ -141,7 +141,7 @@ Deno.serve(async (req: Request) => {
             expires_at: number;
             athlete?: {
                 firstname?: string;
-                lastname?: string;
+                // lastname?: string;
             };
         };
 

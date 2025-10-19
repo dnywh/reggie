@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
         return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
           r.avg_pace_min_km ?? "?"
-        } min/km average pace)`;
+        } min/km avg pace)`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -264,6 +264,14 @@ Start with a variation of "Alright, ${name || "mate"}.", then a new line.
 Keep it short (under 80 words). Use Australian English.
 `;
 
+      const subjectVariations = [
+        "Morning, mate",
+        "Rise and shine",
+        "Good morning!",
+        "Reggie here",
+        "Checking in",
+      ];
+
       const reachOutVariations = [
         "As always, flick me a reply if your plans change. I’ll tweak the schedule accordingly.",
         "Let me know if you have questions or need to change things up.",
@@ -276,6 +284,12 @@ Keep it short (under 80 words). Use Australian English.
         "Rock on,",
         "Cheers,",
         "Yours,",
+      ];
+
+      const nameVariations = [
+        "Reg",
+        "Reggie",
+        "Reginald",
       ];
 
       console.log(`${email} – User prompt:`, userPrompt);
@@ -321,7 +335,7 @@ Keep it short (under 80 words). Use Australian English.
           : []),
         `Here’s what's coming up this week for you:`,
         ``,
-        `• Coming soon: Upcoming items from your training plan`,
+        `• Coming soon (sorry!)`,
         ``,
         // Randomly select a reach out variation (e.g. "Any changes, let me know.")
         reachOutVariations[
@@ -330,14 +344,18 @@ Keep it short (under 80 words). Use Australian English.
         ``,
         // Randomly select a sign-off variation (e.g. "Keep it up,")
         signOffVariations[Math.floor(Math.random() * signOffVariations.length)],
-        `Reg`,
+        // Randomly select a name variation (e.g. "Reg")
+        nameVariations[Math.floor(Math.random() * nameVariations.length)],
       ].join("\n");
       // 6️⃣ Send via Resend
       try {
         await resend.emails.send({
           from: FROM_EMAIL,
           to: email,
-          subject: `Morning, mate. Reggie here`,
+          // Randomly select a subject variation (e.g. "Morning, mate. Reggie here")
+          subject: subjectVariations[
+            Math.floor(Math.random() * subjectVariations.length)
+          ],
           text,
         });
         console.log(`${email} – Successfully sent morning review email!`);

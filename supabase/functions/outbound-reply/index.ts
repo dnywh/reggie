@@ -33,6 +33,7 @@ Deno.serve(async () => {
       const isNewUser = !user.is_active;
 
       // Generate message content based on user status
+      // TODO: Test https://www.strava.com/oauth/mobile/authorize. Does it open in the Strava app?
       const stravaUrl =
         `https://www.strava.com/oauth/authorize?client_id=19982&response_type=code&redirect_uri=${
           encodeURIComponent(`${SUPABASE_URL}/functions/v1/strava-callback`)
