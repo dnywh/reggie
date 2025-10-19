@@ -61,7 +61,7 @@ async function getUserTimezoneFromRecentActivity(
     }
 }
 
-console.info("🦘 Reggie's Strava callback running...");
+console.info("Strava callback running...");
 
 Deno.serve(async (req: Request) => {
     try {

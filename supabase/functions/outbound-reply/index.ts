@@ -41,40 +41,44 @@ Deno.serve(async () => {
           encodeURIComponent(reply.email)
         }`;
 
-      const messageContent = isNewUser
-        ? [
-          "G’day, Reggie here.",
-          "",
-          "Thanks for emailing. I’d be happy to help.",
-          "",
-          "The first step is connecting to Strava so I can keep an eye on your runs. Don’t worry, you can upload them as ‘private’. They’ll still come through to me. Let’s set it up now.",
-          "",
-          "Just click this link to authorise Strava:",
-          stravaUrl,
-          "",
-          `You can disconnect at any time. My human assistant Danny (${
-            Deno.env.get("ASSISTANCE_EMAIL")
-          }) is around if you have any questions.`,
-          "",
-          "Cheers,",
-          "Reg",
-        ]
-        : [
-          `Hey ${user.name || "mate"}, got your email.`,
-          "",
-          `I’ll get back to you soon with a proper response. You can also flick my human assistant, Danny, an email (${
-            Deno.env.get("ASSISTANCE_EMAIL")
-          }) if you need help with something other than your training program.`,
-          "",
-          "Cheers,",
-          "Reg",
-        ];
+      const html = isNewUser
+        ? `
+          <p>G’day, Reggie here.</p>
+          <p>Thanks for emailing. I’d be happy to help.</p>
+          <p>The first step is connecting to Strava so I can keep an eye on your runs. Don’t worry, you can upload them as ‘private’. They’ll still come through to me. Let’s set it up now.</p>
+
+          <a href="${stravaUrl}" style="display: block; margin-left: max(24px, 1em);">
+          <img src="${SUPABASE_URL}/storage/v1/object/public/static/strava-connect.png" 
+              alt="Connect with Strava" 
+              style="width: auto; height: 40px;" />
+          </a>
+        
+          <p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${
+          Deno.env.get("ASSISTANCE_EMAIL")
+        }?subject=Hey Danny, I need help">${
+          Deno.env.get("ASSISTANCE_EMAIL")
+        }</a>) is around if you have any questions.</p>
+          <p>Cheers,<br />
+          Reg</p>
+          
+           <p>If that button didn’t work, try tapping <a href="${stravaUrl}">here</a> instead.</p>
+        `
+        : `
+          <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
+          <p>I’ll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${
+          Deno.env.get("ASSISTANCE_EMAIL")
+        }?subject=Hey Danny, I need help">${
+          Deno.env.get("ASSISTANCE_EMAIL")
+        }</a>) if you need help with something other than your training program.</p>
+          <p>Cheers,<br />
+          Reg</p>
+        `;
 
       await resend.emails.send({
         from: FROM_EMAIL,
         to: reply.email,
         subject: "Got it",
-        text: messageContent.join("\n"),
+        html,
       });
 
       await supabase.from("pending_replies").update({
