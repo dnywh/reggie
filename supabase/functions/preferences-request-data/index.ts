@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -10,8 +11,16 @@ const ASSISTANCE_EMAIL = Deno.env.get("ASSISTANCE_EMAIL");
 
 Deno.serve(async (req: Request) => {
     try {
+        // Handle CORS preflight requests
+        if (req.method === "OPTIONS") {
+            return new Response("ok", { headers: corsHeaders });
+        }
+
         if (req.method !== "POST") {
-            return new Response("Method not allowed", { status: 405 });
+            return new Response("Method not allowed", {
+                status: 405,
+                headers: corsHeaders,
+            });
         }
 
         const { name, email } = await req.json();
@@ -22,7 +31,10 @@ Deno.serve(async (req: Request) => {
                 JSON.stringify({ error: "Missing email parameter" }),
                 {
                     status: 400,
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        ...corsHeaders,
+                        "Content-Type": "application/json",
+                    },
                 },
             );
         }
@@ -34,7 +46,10 @@ Deno.serve(async (req: Request) => {
                 JSON.stringify({ error: "Invalid email format" }),
                 {
                     status: 400,
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        ...corsHeaders,
+                        "Content-Type": "application/json",
+                    },
                 },
             );
         }
@@ -61,7 +76,10 @@ Deno.serve(async (req: Request) => {
                 }),
                 {
                     status: 404,
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        ...corsHeaders,
+                        "Content-Type": "application/json",
+                    },
                 },
             );
         }
@@ -128,13 +146,19 @@ Deno.serve(async (req: Request) => {
                 success: true,
                 message: "Data request submitted successfully",
             }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
+            {
+                status: 200,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
         );
     } catch (error) {
         console.error("❌ Data request error:", error);
         return new Response(
             JSON.stringify({ error: "Internal server error" }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
+            {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
         );
     }
 });
