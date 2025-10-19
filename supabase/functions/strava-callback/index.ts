@@ -11,42 +11,57 @@ const supabase = createClient(
 const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID")!;
 const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET")!;
 
-// Simple country-based timezone detection
-function getTimezoneFromCountry(country: string): string | null {
-    const countryLower = country.toLowerCase();
+// Fetch user's timezone from their most recent activity
+async function getUserTimezoneFromRecentActivity(
+    accessToken: string,
+): Promise<string | null> {
+    try {
+        const res = await fetch(
+            "https://www.strava.com/api/v3/athlete/activities?per_page=1",
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            },
+        );
 
-    // Handle common country name variations
-    if (countryLower.includes("australia")) return "Australia/Sydney";
-    if (
-        countryLower.includes("united states") || countryLower.includes("usa")
-    ) return "America/New_York";
-    if (
-        countryLower.includes("united kingdom") || countryLower.includes("uk")
-    ) return "Europe/London";
-    if (countryLower.includes("canada")) return "America/Toronto";
-    if (countryLower.includes("germany")) return "Europe/Berlin";
-    if (countryLower.includes("france")) return "Europe/Paris";
-    if (countryLower.includes("japan")) return "Asia/Tokyo";
-    if (countryLower.includes("singapore")) return "Asia/Singapore";
-    if (countryLower.includes("new zealand")) return "Pacific/Auckland";
-    if (countryLower.includes("netherlands")) return "Europe/Amsterdam";
-    if (countryLower.includes("spain")) return "Europe/Madrid";
-    if (countryLower.includes("italy")) return "Europe/Rome";
-    if (countryLower.includes("sweden")) return "Europe/Stockholm";
-    if (countryLower.includes("norway")) return "Europe/Oslo";
-    if (countryLower.includes("denmark")) return "Europe/Copenhagen";
-    if (countryLower.includes("brazil")) return "America/Sao_Paulo";
-    if (countryLower.includes("mexico")) return "America/Mexico_City";
-    if (countryLower.includes("south africa")) return "Africa/Johannesburg";
-    if (countryLower.includes("india")) return "Asia/Kolkata";
-    if (countryLower.includes("china")) return "Asia/Shanghai";
-    if (countryLower.includes("south korea")) return "Asia/Seoul";
-    if (countryLower.includes("hong kong")) return "Asia/Hong_Kong";
+        if (!res.ok) {
+            console.log(
+                "Failed to fetch recent activity for timezone detection",
+            );
+            return null;
+        }
 
-    return null; // Fall back to UTC
+        const activities = await res.json();
+        if (!activities || activities.length === 0) {
+            console.log("No activities found for timezone detection");
+            return null;
+        }
+
+        const mostRecentActivity = activities[0];
+        if (!mostRecentActivity.timezone) {
+            console.log("No timezone found in most recent activity");
+            return null;
+        }
+
+        // Extract timezone from Strava's timezone field (e.g., "(GMT-08:00) America/Los_Angeles")
+        const timezoneMatch = mostRecentActivity.timezone.match(
+            /\([^)]+\)\s*(.+)/,
+        );
+        const timezone = timezoneMatch ? timezoneMatch[1] : null;
+
+        if (timezone) {
+            console.log(`Detected timezone from recent activity: ${timezone}`);
+        }
+
+        return timezone;
+    } catch (error) {
+        console.error("Error fetching timezone from recent activity:", error);
+        return null;
+    }
 }
 
-console.info("🦘 Reggie's Strava callback running...");
+console.info("Strava callback running...");
 
 Deno.serve(async (req: Request) => {
     try {
@@ -126,9 +141,7 @@ Deno.serve(async (req: Request) => {
             expires_at: number;
             athlete?: {
                 firstname?: string;
-                lastname?: string;
-                city?: string;
-                country?: string;
+                // lastname?: string;
             };
         };
 
@@ -142,19 +155,23 @@ Deno.serve(async (req: Request) => {
         const expiresIso = new Date(data.expires_at * 1000).toISOString();
         const name = data.athlete?.firstname ?? null;
 
-        // Determine timezone based on athlete's location
+        // Determine timezone from user's most recent activity
         let timezone: string | null = null;
-        if (data.athlete?.country) {
-            // Try to map country to timezone
-            timezone = getTimezoneFromCountry(data.athlete.country);
+        try {
+            timezone = await getUserTimezoneFromRecentActivity(
+                data.access_token,
+            );
 
-            // If mapping fails, fall back to UTC
+            // If we couldn't detect timezone from activities, fall back to UTC
             if (!timezone) {
                 console.log(
-                    `No timezone mapping found for ${data.athlete.country}, falling back to UTC`,
+                    "Could not detect timezone from recent activity, falling back to UTC",
                 );
                 timezone = "UTC";
             }
+        } catch (error) {
+            console.error("Error detecting timezone:", error);
+            timezone = "UTC";
         }
 
         // 3️⃣ First check if user exists, then update the user record in Supabase by email

@@ -1,7 +1,3 @@
-# Reggie
-
-A personal assistant system built with Supabase and Cloudflare Workers for email processing and automation.
-
 ```
 
 
@@ -16,6 +12,10 @@ A personal assistant system built with Supabase and Cloudflare Workers for email
                     █             ███
 
 ```
+
+# Reggie
+
+A personal assistant system built with Supabase and Cloudflare Workers for email processing and automation.
 
 ## Components
 

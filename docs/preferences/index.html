@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preferences | reggie.run</title>
+    <style>
+      section {
+        margin: 2rem 0;
+      }
+
+      section h2 {
+        margin-top: 0;
+      }
+
+      /*  button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 0.5rem 0;
+      }
+
+   button:hover {
+        background-color: #0056b3;
+      }
+
+      button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+
+      button.danger {
+        background-color: #dc3545;
+      }
+
+      button.danger:hover {
+        background-color: #c82333;
+      } */
+
+      .loading {
+        opacity: 0.6;
+      }
+
+      .message {
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+      }
+
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Preferences</h1>
+
+    <div id="user-info">
+      <p id="greeting">Loading...</p>
+    </div>
+
+    <div id="message-container"></div>
+
+    <section>
+      <h2>Manage Strava</h2>
+      <p>Manage your Strava account settings:</p>
+      <a href="https://www.strava.com/settings/profile" target="_blank">
+        Open Strava settings →
+      </a>
+    </section>
+
+    <section>
+      <h2>Manage emails</h2>
+      <p>Control how often Reggie sends you training emails:</p>
+      <button id="pause-emails-btn">Pause emails</button>
+      <button id="resume-emails-btn" style="display: none">
+        Resume emails
+      </button>
+      <p>
+        <small
+          >You'll receive a confirmation email before any changes take
+          effect.</small
+        >
+      </p>
+    </section>
+
+    <section>
+      <h2>Request data</h2>
+      <p>Request a copy of all data Reggie has stored about you:</p>
+      <button id="request-data-btn">Request your data</button>
+      <p><small>We'll email you a copy of your data within 24 hours.</small></p>
+    </section>
+
+    <section>
+      <h2>Delete data (danger zone)</h2>
+      <p>
+        Disconnect Reggie from your Strava account and delete all stored data:
+      </p>
+      <button id="disconnect-btn" class="danger">Delete your data</button>
+      <p>
+        <small
+          >You'll receive a confirmation email before any changes take
+          effect.</small
+        >
+      </p>
+    </section>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/support">Support</a></li>
+        <li><a href="/legal">Legal</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Global variables
+      let name, email;
+
+      // Show message helper
+      function showMessage(text, type) {
+        const container = document.getElementById("message-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = text;
+        container.appendChild(messageDiv);
+
+        // Auto-remove after 5 seconds
+        // setTimeout(() => {
+        //   if (messageDiv.parentNode) {
+        //     messageDiv.parentNode.removeChild(messageDiv);
+        //   }
+        // }, 5000);
+      }
+
+      // API call helper
+      async function callAPI(endpoint, data) {
+        try {
+          const response = await fetch(
+            `https://udnlnequdulaxzhavxzt.supabase.co/functions/v1/${endpoint}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(data),
+            }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "Request failed");
+          }
+
+          return result;
+        } catch (error) {
+          console.error("API call failed:", error);
+          throw error;
+        }
+      }
+
+      // Initialize the page
+      function initializePage() {
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        console.log("Full URL:", window.location.href);
+        console.log("Search params:", window.location.search);
+        console.log("URLSearchParams:", urlParams);
+        console.log("URLSearchParams size:", urlParams.size);
+
+        name = urlParams.get("name");
+        email = urlParams.get("email");
+
+        console.log("Parsed values:", { name, email });
+
+        // Validate required parameters (only email is required)
+        if (!email) {
+          showMessage(
+            "Missing email parameter. Please use the link from your email.",
+            "error"
+          );
+          document.getElementById("greeting").textContent = "Invalid access";
+          return;
+        }
+
+        // Display personalized greeting (name is optional)
+        const greeting = name ? `G'day ${name}!` : "G'day!";
+        document.getElementById("greeting").textContent = greeting;
+
+        // Set up button event listeners
+        setupEventListeners();
+      }
+
+      // Set up button event listeners
+      function setupEventListeners() {
+        document
+          .getElementById("pause-emails-btn")
+          .addEventListener("click", async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Sending confirmation...";
+
+            try {
+              await callAPI("preferences-pause", { name, email });
+              showMessage(
+                "Confirmation email sent! Please check your inbox and click the link to confirm.",
+                "success"
+              );
+              btn.style.display = "none";
+              document.getElementById("resume-emails-btn").style.display =
+                "inline-block";
+            } catch (error) {
+              showMessage(`Failed to pause emails: ${error.message}`, "error");
+              btn.disabled = false;
+              btn.textContent = "Pause emails";
+            }
+          });
+
+        document
+          .getElementById("resume-emails-btn")
+          .addEventListener("click", async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Sending confirmation...";
+
+            try {
+              await callAPI("preferences-resume", { name, email });
+              showMessage(
+                "Confirmation email sent! Please check your inbox and click the link to confirm.",
+                "success"
+              );
+              btn.style.display = "none";
+              document.getElementById("pause-emails-btn").style.display =
+                "inline-block";
+            } catch (error) {
+              showMessage(`Failed to resume emails: ${error.message}`, "error");
+              btn.disabled = false;
+              btn.textContent = "Resume emails";
+            }
+          });
+
+        document
+          .getElementById("disconnect-btn")
+          .addEventListener("click", async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Sending confirmation...";
+
+            try {
+              await callAPI("preferences-disconnect", { name, email });
+              showMessage(
+                "Confirmation email sent! Please check your inbox and click the link to confirm the disconnection.",
+                "warning"
+              );
+              btn.disabled = false;
+              btn.textContent = "Delete your data";
+            } catch (error) {
+              showMessage(
+                `Failed to initiate disconnection: ${error.message}`,
+                "error"
+              );
+              btn.disabled = false;
+              btn.textContent = "Delete your data";
+            }
+          });
+
+        document
+          .getElementById("request-data-btn")
+          .addEventListener("click", async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Requesting...";
+
+            try {
+              await callAPI("preferences-request-data", { name, email });
+              showMessage(
+                "Data request submitted! You'll receive your data within 24 hours.",
+                "success"
+              );
+              btn.disabled = false;
+              btn.textContent = "Request your data";
+            } catch (error) {
+              showMessage(`Failed to request data: ${error.message}`, "error");
+              btn.disabled = false;
+              btn.textContent = "Request your data";
+            }
+          });
+      }
+
+      // Initialize when page loads
+      document.addEventListener("DOMContentLoaded", initializePage);
+    </script>
+  </body>
+</html>

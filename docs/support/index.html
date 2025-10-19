@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support | reggie.run</title>
+  </head>
+  <body>
+    <h1>Support</h1>
+    <p>
+      Got questions or need some help? Send an email to
+      <a id="help-email-link" href="#"></a>.
+    </p>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/legal">Legal</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Decode the base64-encoded email address (for assistance)
+      const encodedEmail = "bWFrZUByZWdnaWUucnVu";
+      const decodedEmail = atob(encodedEmail);
+      // Update the main email link
+      const helpEmailLink = document.getElementById("help-email-link");
+      helpEmailLink.href =
+        "mailto:" + decodedEmail + "?subject=Hey Reggie, I need help";
+      helpEmailLink.textContent = decodedEmail;
+    </script>
+  </body>
+</html>
