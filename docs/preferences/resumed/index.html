@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>reggie.run</title>
+    <title>Emails Resumed | reggie.run</title>
     <style>
       pre {
         font-size: 0.24rem;
@@ -11,68 +11,36 @@
       hr {
         margin: 2rem 0;
       }
+
+      .success-message {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        padding: 1rem;
+        border-radius: 4px;
+        margin: 2rem 0;
+      }
     </style>
   </head>
   <body>
-    <h1>reggie.run</h1>
-    <p>G’day, Reggie here.</p>
+    <h1>Emails Resumed</h1>
+
+    <div class="success-message">
+      <h2>✅ Success!</h2>
+      <p>
+        Reggie's daily training emails have been resumed. You'll start receiving
+        your personalized training plans again!
+      </p>
+    </div>
 
     <p>
-      Send me an email with your running goals, then I’ll start sending a daily
-      training routine.
+      Welcome back! Reggie will continue sending you daily training routines
+      based on your Strava activity.
     </p>
 
     <p>
-      <a id="email-link" href="#" style="font-weight: bold"></a>
+      <a href="/preferences" style="font-weight: bold">← Back to Preferences</a>
     </p>
-
-    <p>
-      That’s it. No app, no pesky subscription. Just a numbat with an email
-      address.
-    </p>
-
-    <p>Voted world’s best running coach*.</p>
-
-    <h2>FAQ</h2>
-    <details>
-      <summary>What do you need from me?</summary>
-      <p>
-        Gosh, you’re keen! First, just email me. I’ll reply asking you to
-        connect your Strava account so I can see your running activity. From
-        there, we’ll discuss your running goals, recent injuries, and so on to
-        form a personalised training plan.
-      </p>
-    </details>
-    <details>
-      <summary>Are you really going to send me emails each day?</summary>
-      <p>Yep, but only if you want me to. You can stop whenever.</p>
-    </details>
-    <details>
-      <summary>What if things change?</summary>
-      <p>
-        That’s the beauty of all this. I’ll adjust your training plan as needed.
-        Just <a id="faq-email-link" href="#">shoot me an email</a> if something
-        comes up.
-      </p>
-    </details>
-    <details>
-      <summary>How can I support you?</summary>
-      <p>
-        It’s nice of you to ask. Did you know numbats like me are endangered?
-        I’d appreciate if you could donate to
-        <a href="https://www.numbat.org.au/donations" target="_blank"
-          >Project Numbat</a
-        >. Tell them I sent you.
-      </p>
-    </details>
-    <details>
-      <summary>Who is your human assistant?</summary>
-      <p>
-        Danny. He’s the best person to chat to for ‘admin’ things. You can find
-        his website and contact information at
-        <a href="https://dannywhite.net" target="_blank">dannywhite.net</a>.
-      </p>
-    </details>
 
     <footer>
       <hr />
@@ -111,26 +79,10 @@
       </p>
 
       <ul>
+        <li><a href="/">Home</a></li>
         <li><a href="/support">Support</a></li>
         <li><a href="/legal">Legal</a></li>
       </ul>
     </footer>
-    <script>
-      // Decode the base64-encoded email address (for Reggie)
-      const encodedEmail = "cnVuQHJlZ2dpZS5ydW4=";
-      const decodedEmail = atob(encodedEmail);
-
-      // Update the main email link
-      const emailLink = document.getElementById("email-link");
-      emailLink.href =
-        "mailto:" +
-        decodedEmail +
-        "?subject=Hey Reggie, please help me with my running&body=Say hi! I don’t bite.";
-      emailLink.textContent = decodedEmail;
-
-      // Update the FAQ email link
-      const faqEmailLink = document.getElementById("faq-email-link");
-      faqEmailLink.href = "mailto:" + decodedEmail;
-    </script>
   </body>
 </html>

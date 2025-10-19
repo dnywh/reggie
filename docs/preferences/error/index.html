@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error | reggie.run</title>
+    <style>
+      pre {
+        font-size: 0.24rem;
+      }
+
+      hr {
+        margin: 2rem 0;
+      }
+
+      .error-message {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        padding: 1rem;
+        border-radius: 4px;
+        margin: 2rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Something went wrong</h1>
+
+    <div class="error-message">
+      <h2>❌ Error</h2>
+      <p id="error-text">
+        An unexpected error occurred. Please try again or contact support if the
+        problem persists.
+      </p>
+    </div>
+
+    <p>
+      If you continue to experience issues, please email Reggie's human
+      assistant for help.
+    </p>
+
+    <p>
+      <a href="/preferences" style="font-weight: bold">← Back to Preferences</a>
+      |
+      <a href="/support" style="font-weight: bold">Contact Support</a>
+    </p>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/support">Support</a></li>
+        <li><a href="/legal">Legal</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Display error message from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get("error");
+      if (error) {
+        document.getElementById("error-text").textContent =
+          decodeURIComponent(error);
+      }
+    </script>
+  </body>
+</html>
