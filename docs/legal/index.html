@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Legal | reggie.run</title>
+  </head>
+  <body>
+    <h1>Legal</h1>
+
+    <h2>Imprint</h2>
+    <p>
+      <em>Reggie’s human assistant:</em>
+      <br />
+      Danny White
+      <br />
+      Numbat Industries
+      <br />
+      Coolum Beach, QLD, Australia
+      <br />
+      <a class="help-email-link" href="#"></a>
+    </p>
+
+    <h2>Terms of use</h2>
+    <p>
+      Reggie is provided as-is, without warranty. You are responsible for your
+      own training decisions.
+    </p>
+    <p>
+      By connecting your Strava account, you agree that Reggie may process your
+      running activity data to send you personalised coaching emails.
+    </p>
+
+    <h2>Privacy policy</h2>
+    <p>
+      Reggie collects your name, timezone, and basic running activity data from
+      Strava only after you connect your account.
+    </p>
+
+    <p>
+      <em>Purpose:</em><br />To send you coaching emails based on your own runs.
+    </p>
+
+    <p>
+      <em>Data sharing:</em><br />
+      No data is shared with anyone except our service providers:
+    </p>
+    <ul>
+      <li>Strava (for authentication and data retrieval)</li>
+      <li>Supabase (for data storage and processing)</li>
+      <li>Cloudflare (for email receiving)</li>
+      <li>Resend (for email sending)</li>
+      <li>OpenAI (for generating email text; data is not used for training)</li>
+    </ul>
+
+    <p>
+      <em>Data access:</em><br />
+      You can email <a class="help-email-link" href="#"></a> to request a copy
+      of your stored data.
+    </p>
+
+    <p>
+      <em>Data deletion:</em><br />
+      You can disconnect Reggie from
+      <a href="https://www.strava.com/settings/apps">your Strava account</a> at
+      any time. All related data will be deleted automatically within 24 hours.
+      You can alternatively email <a class="help-email-link" href="#"></a> to
+      request deletion.
+    </p>
+
+    <p>
+      <em>Contact:</em><br />
+      <a class="help-email-link" href="#"></a>
+    </p>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/support">Support</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Decode the base64-encoded email address (for assistance)
+      const encodedEmail = "bWFrZUByZWdnaWUucnVu";
+      const decodedEmail = atob(encodedEmail);
+      // Update the main email link
+      const helpEmailLinks = document.getElementsByClassName("help-email-link");
+      for (const helpEmailLink of helpEmailLinks) {
+        helpEmailLink.href =
+          "mailto:" + decodedEmail + "?subject=Hey Reggie, I need help";
+        helpEmailLink.textContent = decodedEmail;
+      }
+    </script>
+  </body>
+</html>
