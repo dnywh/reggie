@@ -14,24 +14,22 @@ Deno.serve(async () => {
   try {
     const subject = "Hey there";
     const html = `
-      <p>Hello there!</p>
-      <p>Here is a list of things:</p>
+      Hello there!
+      Here is a list of things:
       <ul>
         <li>Thing 1</li>
         <li>Thing 2</li>
         <li>Thing 3</li>
       </ul>
 
-      <p>Thanks for testing!<br />
-      Reggie</p>
+      Thanks for testing!
+      Reggie
 
       ${
       includePreferencesLink
         ? `
-        <footer>
-          <p>---</p>
-          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?email=${to}">edit your preferences</a> at any time.</p>
-        </footer>
+      ---
+      P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?email=${to}">edit your preferences</a> at any time.
       `
         : ""
     }

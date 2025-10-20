@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
       const systemPrompt = `
 You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
 You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
+Be liberal with line breaks for readability.
 Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
 Use curly quotes (‘ and ’) for apostrophes, not straight quotes (“ and ”). Don't use em-dashes.
 `;
@@ -324,39 +325,27 @@ Keep it short (under 80 words). Use Australian English.
         }. Here are the latest numbers.</p>`;
 
       const html = `
-        <p>${advice}</p>
+        ${advice}
         ${
         yesterdayRuns?.length
-          ? `<p>Here’s what you ran yesterday:</p>
+          ? `
+          <p>Here’s what you ran yesterday:</p>
           <ul>
-            ${
-            formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)
-          }
+          ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
           </ul>
           `
           : ""
       }
-        <p>Here’s what’s coming up this week:</p>
+        Here’s what’s coming up this week:
         <ul>
-          <li>Tomorrow: coming soon (sorry!)</li>
+        <li>Tomorrow: coming soon (sorry!)</li>
         </ul>
-        <p>
-        ${
-        // Randomly select a reach out variation (e.g. "Any changes, let me know.")
-        reachOutVariations[
-          Math.floor(Math.random() * reachOutVariations.length)
-        ]}</p>
-        <p>${
-        // Randomly select a sign-off variation (e.g. "Keep it up,")
-        signOffVariations[
-          Math.floor(Math.random() * signOffVariations.length)
-        ]}<br />
-       ${
-        // Randomly select a name variation (e.g. "Reg")
-        nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
+        <p>${reachOutVariations[Math.floor(Math.random() * reachOutVariations.length)]}</p>
+        <p>${signOffVariations[Math.floor(Math.random() * signOffVariations.length)]}<br />
+       ${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
         <footer>
-          <p>---</p>
-          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
+        <p>---</p>
+        <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
         </footer>
         `;
 
