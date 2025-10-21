@@ -111,7 +111,7 @@ Deno.serve(async (_req: Request) => {
   // Parse headers for testing overrides
   // TODO: can't seem to get working
   // const skipMorningCheck = req.headers.get("skip_morning_check") === "true";
-  const skipMorningCheck = true;
+  const skipMorningCheck = false;
   // console.log({ skipMorningCheck });
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -338,6 +338,7 @@ ${
         yesterdayRuns?.length
           ? `
 <p>Here's what you ran yesterday:</p>
+
 <ul>
 ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
 </ul>
@@ -345,8 +346,9 @@ ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
           : ""
       }
 <p>Here's the plan for the next few days:</p>
+
 <ul>
-<li>Today: TBD</li>  
+<li>Today: TBD</li>
 <li>Tomorrow: TBD</li>
 <li>Friday: TBD</li>
 <li>Saturday: TBD</li>
@@ -359,10 +361,9 @@ ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
 }</br>
 ${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
 
-<footer>
 <p>---</p>
+
 <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
-</footer>
 `;
 
       // 6️⃣ Send via Resend
