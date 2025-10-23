@@ -4,6 +4,23 @@ import { Resend } from "npm:resend";
 const REGGIE_URL = Deno.env.get("REGGIE_URL");
 const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
 
+// Format pace from numeric minutes per km (e.g., 4.97) to time format (e.g., "4:56")
+function formatPace(paceMinKm: number | null): string {
+  if (paceMinKm === null || paceMinKm === undefined) {
+    return "?";
+  }
+
+  const minutes = Math.floor(paceMinKm);
+  const seconds = Math.round((paceMinKm - minutes) * 60);
+
+  // Handle edge case where seconds round to 60
+  if (seconds === 60) {
+    return `${minutes + 1}:00`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 // Check if a run happened "yesterday" based on the run's actual timezone
 function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   if (!run.start_date_local || !run.timezone) {
@@ -208,8 +225,8 @@ Deno.serve(async (_req: Request) => {
       // Format yesterday's runs for email display (if any)
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
         return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
-          r.avg_pace_min_km ?? "?"
-        } min/km avg pace)`;
+          formatPace(r.avg_pace_min_km)
+        }/km)`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -225,17 +242,27 @@ Deno.serve(async (_req: Request) => {
           : `${daysAgo} days ago`;
         return `${dayLabel}: ${r.distance_km ?? "?"} km in ${
           r.duration_min ?? "?"
-        } min (${r.avg_pace_min_km ?? "?"} min/km)`;
+        } min (${formatPace(r.avg_pace_min_km)} min/km)`;
       }) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
+
+      const greetingVariations = [
+        "Alright",
+        "Whats up",
+        "Hey",
+        "Morning",
+        "Howdy",
+      ];
+
+
       // 3️⃣ Prepare DeepSeek prompt
       const systemPrompt = `
-You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
-You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
+You are Reggie the Numbat, a running coach who writes short, cheeky morning check-ins in Australian English.
+Give one paragraph of advice for today based on the runner’s recent activity and their broader goals.
+Use smart curly quotes (‘’ and “”) for quotation marks and apostrophes, not dumb straight quotes ('' and ""). Do not use em-dashes. 
 Be liberal with line breaks for readability.
-Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
-Use curly quotes (‘ and ’) for apostrophes, not straight quotes (“ and ”). Don't use em-dashes.
+Be clear, concise, yet not robotic. Just a nice Numbat running coach.
 `;
       // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
@@ -260,7 +287,7 @@ ${formattedRecentRuns.join(", ")}
 ---
 Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "Alright, ${name || "mate"}.".
+Start with a variation of "${greetingVariations[Math.floor(Math.random() * greetingVariations.length)]}, ${name || "mate"}.".
 Keep it short (under 80 words). Use Australian English.
 `;
 
@@ -274,7 +301,8 @@ Keep it short (under 80 words). Use Australian English.
 
       const reachOutVariations = [
         "As always, flick me a reply if your plans change. I’ll tweak the schedule accordingly.",
-        "Let me know if you have questions or need to change things up.",
+        "Let me know if you have questions.",
+        "Let me know if you need to change things up.",
         "Any changes, let me know.",
       ];
 
@@ -290,6 +318,11 @@ Keep it short (under 80 words). Use Australian English.
         "Reg",
         "Reggie",
         "Reginald",
+      ];
+
+      const preferenceTextVariations = [
+        "Let me know",
+        "Edit your preferences",
       ];
 
       console.log(`${email} – User prompt:`, userPrompt);
@@ -363,7 +396,7 @@ ${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
 
 <p>---</p>
 
-<p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
+<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${preferenceTextVariations[Math.floor(Math.random() * preferenceTextVariations.length)]}</a>.</p>
 `;
 
       // 6️⃣ Send via Resend
