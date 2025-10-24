@@ -21,6 +21,23 @@ function formatPace(paceMinKm: number | null): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+// Format duration from numeric minutes (e.g., 25.8) to time format (e.g., "25m 40s")
+function formatDuration(durationMin: number | null): string {
+  if (durationMin === null || durationMin === undefined) {
+    return "?";
+  }
+
+  const minutes = Math.floor(durationMin);
+  const seconds = Math.round((durationMin - minutes) * 60);
+
+  // Handle edge case where seconds round to 60
+  if (seconds === 60) {
+    return `${minutes + 1}m 0s`;
+  }
+
+  return `${minutes}m ${seconds}s`;
+}
+
 // Check if a run happened "yesterday" based on the run's actual timezone
 function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
   if (!run.start_date_local || !run.timezone) {
@@ -224,9 +241,9 @@ Deno.serve(async (_req: Request) => {
       }
       // Format yesterday's runs for email display (if any)
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
-        return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
-          formatPace(r.avg_pace_min_km)
-        }/km)`;
+        return `${r.distance_km ?? "?"}km in ${
+          formatDuration(r.duration_min)
+        } (${formatPace(r.avg_pace_min_km)}/km)`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -240,9 +257,9 @@ Deno.serve(async (_req: Request) => {
           : daysAgo === 1
           ? "yesterday"
           : `${daysAgo} days ago`;
-        return `${dayLabel}: ${r.distance_km ?? "?"} km in ${
-          r.duration_min ?? "?"
-        } min (${formatPace(r.avg_pace_min_km)} min/km)`;
+        return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
+          formatDuration(r.duration_min)
+        } (${formatPace(r.avg_pace_min_km)}/km)`;
       }) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
@@ -254,7 +271,6 @@ Deno.serve(async (_req: Request) => {
         "Morning",
         "Howdy",
       ];
-
 
       // 3️⃣ Prepare DeepSeek prompt
       const systemPrompt = `
@@ -287,7 +303,11 @@ ${formattedRecentRuns.join(", ")}
 ---
 Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "${greetingVariations[Math.floor(Math.random() * greetingVariations.length)]}, ${name || "mate"}.".
+Start with a variation of "${
+        greetingVariations[
+          Math.floor(Math.random() * greetingVariations.length)
+        ]
+      }, ${name || "mate"}.".
 Keep it short (under 80 words). Use Australian English.
 `;
 
@@ -388,15 +408,24 @@ ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
 <li>Sunday: TBD</li>
 </ul>
 
-<p>${reachOutVariations[Math.floor(Math.random() * reachOutVariations.length)]}</p>
+<p>${
+        reachOutVariations[
+          Math.floor(Math.random() * reachOutVariations.length)
+        ]
+      }</p>
 
-<p>${signOffVariations[Math.floor(Math.random() * signOffVariations.length)]
-}</br>
+<p>${
+        signOffVariations[Math.floor(Math.random() * signOffVariations.length)]
+      }</br>
 ${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
 
 <p>---</p>
 
-<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${preferenceTextVariations[Math.floor(Math.random() * preferenceTextVariations.length)]}</a>.</p>
+<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${
+        preferenceTextVariations[
+          Math.floor(Math.random() * preferenceTextVariations.length)
+        ]
+      }</a>.</p>
 `;
 
       // 6️⃣ Send via Resend
