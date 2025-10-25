@@ -32,13 +32,13 @@ async function getUserTimezoneFromRecentActivity(
             return null;
         }
 
-        const activities = await res.json();
+        const activities = await res.json() as any[];
         if (!activities || activities.length === 0) {
             console.log("No activities found for timezone detection");
             return null;
         }
 
-        const mostRecentActivity = activities[0];
+        const mostRecentActivity = activities[0] as any;
         if (!mostRecentActivity.timezone) {
             console.log("No timezone found in most recent activity");
             return null;
@@ -212,7 +212,74 @@ Deno.serve(async (req: Request) => {
             throw new Error(`Failed to update user: ${updateError.message}`);
         }
 
-        // 4️⃣ Redirect to success page
+        // 4️⃣ Check if webhook subscription exists, create if not
+        try {
+            const { data: existingSubscription } = await supabase
+                .from("strava_webhook_subscription")
+                .select("subscription_id")
+                .eq("id", 1)
+                .single();
+
+            if (!existingSubscription) {
+                console.log(
+                    "🪝 No webhook subscription found, creating one...",
+                );
+
+                const STRAVA_WEBHOOK_VERIFY_TOKEN = Deno.env.get(
+                    "STRAVA_WEBHOOK_VERIFY_TOKEN",
+                );
+                const callbackUrl = `${
+                    Deno.env.get("SUPABASE_URL")
+                }/functions/v1/strava-webhook`;
+
+                const formData = new FormData();
+                formData.append("client_id", STRAVA_CLIENT_ID);
+                formData.append("client_secret", STRAVA_CLIENT_SECRET);
+                formData.append("callback_url", callbackUrl);
+                formData.append("verify_token", STRAVA_WEBHOOK_VERIFY_TOKEN!);
+
+                const webhookRes = await fetch(
+                    "https://www.strava.com/api/v3/push_subscriptions",
+                    {
+                        method: "POST",
+                        body: formData,
+                    },
+                );
+
+                if (webhookRes.ok) {
+                    const webhookData = await webhookRes.json() as {
+                        id: number;
+                    };
+                    console.log(
+                        `✅ Created webhook subscription with ID: ${webhookData.id}`,
+                    );
+
+                    // Store the subscription ID
+                    await supabase
+                        .from("strava_webhook_subscription")
+                        .upsert({ id: 1, subscription_id: webhookData.id }, {
+                            onConflict: "id",
+                        });
+                } else {
+                    const errorText = await webhookRes.text();
+                    console.error(
+                        `❌ Failed to create webhook subscription: ${webhookRes.status} - ${errorText}`,
+                    );
+                }
+            } else {
+                console.log(
+                    `🪝 Webhook subscription already exists with ID: ${existingSubscription.subscription_id}`,
+                );
+            }
+        } catch (webhookError) {
+            console.error(
+                "❌ Error handling webhook subscription:",
+                webhookError,
+            );
+            // Don't fail the entire callback if webhook creation fails
+        }
+
+        // 5️⃣ Redirect to success page
         console.log(`✅ Successfully connected Strava for user: ${state}`);
         return new Response(null, {
             status: 302,

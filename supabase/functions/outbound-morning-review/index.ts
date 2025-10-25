@@ -2,7 +2,42 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const REGGIE_URL = Deno.env.get("REGGIE_URL");
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+const OPENAI_API_URL = Deno.env.get("OPENAI_API_URL");
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL");
+
+// Format pace from numeric minutes per km (e.g., 4.97) to time format (e.g., "4:56")
+function formatPace(paceMinKm: number | null): string {
+  if (paceMinKm === null || paceMinKm === undefined) {
+    return "?";
+  }
+
+  const minutes = Math.floor(paceMinKm);
+  const seconds = Math.round((paceMinKm - minutes) * 60);
+
+  // Handle edge case where seconds round to 60
+  if (seconds === 60) {
+    return `${minutes + 1}:00`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+// Format duration from numeric minutes (e.g., 25.8) to time format (e.g., "25m 40s")
+function formatDuration(durationMin: number | null): string {
+  if (durationMin === null || durationMin === undefined) {
+    return "?";
+  }
+
+  const minutes = Math.floor(durationMin);
+  const seconds = Math.round((durationMin - minutes) * 60);
+
+  // Handle edge case where seconds round to 60
+  if (seconds === 60) {
+    return `${minutes + 1}m 0s`;
+  }
+
+  return `${minutes}m ${seconds}s`;
+}
 
 // Check if a run happened "yesterday" based on the run's actual timezone
 function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
@@ -107,17 +142,16 @@ function getDaysAgoInTimezone(
   return formattedDate;
 }
 
-Deno.serve(async (req) => {
-  // Deno.serve(async (_req) => {
+Deno.serve(async (_req: Request) => {
   // Parse headers for testing overrides
   // TODO: can't seem to get working
-  const skipMorningCheck = req.headers.get("x-skip-morning-check") === "true";
-  // const skipMorningCheck = true;
+  // const skipMorningCheck = req.headers.get("skip_morning_check") === "true";
+  const skipMorningCheck = false;
   // console.log({ skipMorningCheck });
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
   const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
   const resend = new Resend(RESEND_API_KEY);
@@ -208,9 +242,9 @@ Deno.serve(async (req) => {
       }
       // Format yesterday's runs for email display (if any)
       const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
-        return `${r.distance_km ?? "?"} km in ${r.duration_min ?? "?"} min (${
-          r.avg_pace_min_km ?? "?"
-        } min/km avg pace)`;
+        return `${r.distance_km ?? "?"}km in ${
+          formatDuration(r.duration_min)
+        } (${formatPace(r.avg_pace_min_km)}/km)`;
       }) || [];
 
       // Format recent runs for LLM context (with days ago)
@@ -224,18 +258,28 @@ Deno.serve(async (req) => {
           : daysAgo === 1
           ? "yesterday"
           : `${daysAgo} days ago`;
-        return `${dayLabel}: ${r.distance_km ?? "?"} km in ${
-          r.duration_min ?? "?"
-        } min (${r.avg_pace_min_km ?? "?"} min/km)`;
+        return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
+          formatDuration(r.duration_min)
+        } (${formatPace(r.avg_pace_min_km)}/km)`;
       }) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
-      // 3️⃣ Prepare DeepSeek prompt
+
+      const greetingVariations = [
+        "Alright",
+        "Whats up",
+        "Hey",
+        "Morning",
+        "Howdy",
+      ];
+
+      // 3️⃣ Prepare prompt
       const systemPrompt = `
-You are Reggie the Numbat, an Aussie running coach who writes short, cheeky morning check-ins.
-You have to give one paragraph of advice for today based on the runner's recent activity and their broader goals.
-Be conversational, fun, and motivational, yet non-cheesy, not over-the-top on Australian slang, and not robotic.
-Use curly quotes (‘ and ’) for apostrophes, not straight quotes (“ and ”). Don't use em-dashes.
+You are Reggie the Numbat, a running coach who writes short, cheeky morning check-ins in Australian English.
+Give one paragraph of advice for today based on the runner’s recent activity and their broader goals.
+Use smart curly quotes (‘’ and “”) for quotation marks and apostrophes, not dumb straight quotes ('' and ""). Do not use em-dashes. 
+Be liberal with line breaks for readability.
+Be clear, concise, yet not robotic. Just a nice Numbat running coach.
 `;
       // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
@@ -260,7 +304,11 @@ ${formattedRecentRuns.join(", ")}
 ---
 Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
 If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "Alright, ${name || "mate"}.".
+Start with a variation of "${
+        greetingVariations[
+          Math.floor(Math.random() * greetingVariations.length)
+        ]
+      }, ${name || "mate"}.".
 Keep it short (under 80 words). Use Australian English.
 `;
 
@@ -274,7 +322,8 @@ Keep it short (under 80 words). Use Australian English.
 
       const reachOutVariations = [
         "As always, flick me a reply if your plans change. I’ll tweak the schedule accordingly.",
-        "Let me know if you have questions or need to change things up.",
+        "Let me know if you have questions.",
+        "Let me know if you need to change things up.",
         "Any changes, let me know.",
       ];
 
@@ -292,16 +341,21 @@ Keep it short (under 80 words). Use Australian English.
         "Reginald",
       ];
 
+      const preferenceTextVariations = [
+        "Let me know",
+        "Edit your preferences",
+      ];
+
       console.log(`${email} – User prompt:`, userPrompt);
-      // 4️⃣ Call DeepSeek
-      const llmResponse = await fetch(DEEPSEEK_API_URL, {
+      // 4️⃣ Call LLM
+      const llmResponse = await fetch(OPENAI_API_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: OPENAI_MODEL,
           messages: [
             {
               role: "system",
@@ -323,42 +377,57 @@ Keep it short (under 80 words). Use Australian English.
           name || "mate"
         }. Here are the latest numbers.</p>`;
 
+      // Format advice text by wrapping each line in <p> tags
+      const formattedAdvice = advice
+        .split("\n")
+        .filter((line: string) =>
+          line.trim() !== ""
+        ) // Remove empty lines
+        .map((line: string) => `<p>${line.trim()}</p>`)
+        .join("\n\n");
+
       const html = `
-        <p>${advice}</p>
-        ${
+${formattedAdvice}
+${
         yesterdayRuns?.length
-          ? `<p>Here’s what you ran yesterday:</p>
-          <ul>
-            ${
-            formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)
-          }
-          </ul>
-          `
+          ? `
+<p>Here's what you ran yesterday:</p>
+
+<ul>
+${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
+</ul>
+`
           : ""
       }
-        <p>Here’s what’s coming up this week:</p>
-        <ul>
-          <li>Tomorrow: coming soon (sorry!)</li>
-        </ul>
-        <p>
-        ${
-        // Randomly select a reach out variation (e.g. "Any changes, let me know.")
+<p>Here's the plan for the next few days:</p>
+
+<ul>
+<li>Today: TBD</li>
+<li>Tomorrow: TBD</li>
+<li>Friday: TBD</li>
+<li>Saturday: TBD</li>
+<li>Sunday: TBD</li>
+</ul>
+
+<p>${
         reachOutVariations[
           Math.floor(Math.random() * reachOutVariations.length)
-        ]}</p>
-        <p>${
-        // Randomly select a sign-off variation (e.g. "Keep it up,")
-        signOffVariations[
-          Math.floor(Math.random() * signOffVariations.length)
-        ]}<br />
-       ${
-        // Randomly select a name variation (e.g. "Reg")
-        nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
-        <footer>
-          <p>---</p>
-          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">edit your preferences</a> at any time.</p>
-        </footer>
-        `;
+        ]
+      }</p>
+
+<p>${
+        signOffVariations[Math.floor(Math.random() * signOffVariations.length)]
+      }</br>
+${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
+
+<p>---</p>
+
+<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${
+        preferenceTextVariations[
+          Math.floor(Math.random() * preferenceTextVariations.length)
+        ]
+      }</a>.</p>
+`;
 
       // 6️⃣ Send via Resend
       try {
