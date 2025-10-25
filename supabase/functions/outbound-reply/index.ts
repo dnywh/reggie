@@ -58,37 +58,35 @@ Deno.serve(async () => {
 
       const html = isNewUser
         ? `
-          <p>G'day, Reggie here.</p>
-          <p>Thanks for emailing. I'd be happy to help.</p>
-          <p>The first step is connecting to Strava so I can keep an eye on your runs. You can still upload them as ‘private’ from the feed. They’ll still come through to me.</p>
-          <p>Let's set it up now:</p>
+<p>G'day, Reggie here.</p>
 
-          <a href="${stravaUrl}" style="display: block; margin-left: max(24px, 1em);">
-          <img src="${SUPABASE_URL}/storage/v1/object/public/static/strava-connect.png" 
-              alt="Connect with Strava" 
-              style="width: auto; height: 40px;" />
-          </a>
-        
-          <p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
-          <p>Cheers,<br />
-          Reg</p>
-          
-          <footer>
-          <p>---</p>
-           <p>P.S. if that Strava button didn't work, try using <a href="${stravaUrl}">this link</a> instead.</p>
-          </footer>
-        `
-        : `
-          <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
-          <p>I'll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>)
-          if you need help with something other than your training program.</p>
-          <p>Cheers,<br />
-          Reg</p>
+<p>Thanks for emailing. I’d be happy to help.</p>
+<p>The first step is hooking up to Strava so I can keep an eye on your runs. Let's set it up now:</p>
 
-        <footer>
-          <p>---</p>
-          <p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${user.name}&email=${reply.email}">edit your preferences</a> at any time.</p>
-        </footer>
+<a href="${stravaUrl}">Connect with Strava</a>
+
+<p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
+<p>Cheers,<br />
+Reg</p>
+
+<p>---</p>
+
+<p>P.S. you can upload your Strava runs as ‘private’ if you prefer. They’ll still come through to me.
+
+<p>P.P.S. did you know you can automatically upload your runs to Strava from your running watch? More info <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">here</a>.</p>
+`
+: `
+<p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
+
+<p>I'll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) if you need help with something other than your training program.</p>
+
+<p>Cheers,<br />
+Reg</p>
+
+
+<p>---</p>
+
+<p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${user.name}&email=${reply.email}">edit your preferences</a> at any time.</p>
         `;
 
       console.log("📧 Sending email to:", reply.email);
