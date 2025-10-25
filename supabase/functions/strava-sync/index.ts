@@ -6,8 +6,29 @@ const supabase = createClient(
 );
 const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID");
 const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET");
-console.info("🦘 Reggie’s Strava sync booting up...");
-async function refreshTokenIfNeeded(user) {
+console.info("🦘 Reggie's Strava sync booting up...");
+console.info(
+  "📝 Note: This function serves as a backup to webhook events and handles initial syncs",
+);
+interface User {
+  id: string;
+  email: string;
+  strava_access_token?: string;
+  strava_refresh_token?: string;
+  strava_token_expires_at?: string;
+}
+
+interface StravaActivity {
+  id: number;
+  type: string;
+  distance: number;
+  moving_time: number;
+  timezone?: string;
+  start_date_local: string;
+  name?: string;
+}
+
+async function refreshTokenIfNeeded(user: User) {
   const now = Date.now();
   const expiresAt = new Date(user.strava_token_expires_at ?? 0).getTime();
   // Refresh if missing or expired (allow 1-min buffer)
@@ -26,7 +47,11 @@ async function refreshTokenIfNeeded(user) {
       }),
     });
     if (!res.ok) throw new Error(`Failed to refresh: ${res.status}`);
-    const data = await res.json();
+    const data = await res.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_at: number;
+    };
     // Persist the new tokens in the DB
     const { error } = await supabase.from("users").update({
       strava_access_token: data.access_token,
@@ -38,7 +63,7 @@ async function refreshTokenIfNeeded(user) {
   }
   return user.strava_access_token;
 }
-async function fetchAndStoreRuns(userId, accessToken) {
+async function fetchAndStoreRuns(userId: string, accessToken: string) {
   const res = await fetch(
     "https://www.strava.com/api/v3/athlete/activities?per_page=30",
     {
@@ -48,10 +73,10 @@ async function fetchAndStoreRuns(userId, accessToken) {
     },
   );
   if (!res.ok) throw new Error(`Strava API error ${res.status}`);
-  const activities = await res.json();
+  const activities = await res.json() as StravaActivity[];
   // Filter to runs only
-  const runs = activities.filter((a) => a.type === "Run");
-  const formatted = runs.map((a) => {
+  const runs = activities.filter((a: StravaActivity) => a.type === "Run");
+  const formatted = runs.map((a: StravaActivity) => {
     const distance_km = a.distance / 1000;
     const duration_min = a.moving_time / 60;
     const avg_pace_min_km = distance_km > 0 ? duration_min / distance_km : null;
@@ -91,7 +116,7 @@ async function fetchAndStoreRuns(userId, accessToken) {
   const { data: storedRuns } = await supabase.from("runs")
     .select("strava_id, start_date_local, timezone")
     .eq("user_id", userId)
-    .in("strava_id", formatted.map((f) => f.strava_id))
+    .in("strava_id", formatted.map((f: any) => f.strava_id))
     .order("start_date_local", { ascending: false });
 
   console.log(`📊 What's actually stored in DB:`);
@@ -104,6 +129,7 @@ async function fetchAndStoreRuns(userId, accessToken) {
 Deno.serve(async () => {
   try {
     // 1️⃣ Get all users who have Strava linked
+    // This function serves as a backup to webhook events and handles initial syncs
     const { data: users, error } = await supabase.from("users").select("*").not(
       "strava_refresh_token",
       "is",
@@ -115,8 +141,10 @@ Deno.serve(async () => {
     for (const user of users) {
       try {
         const accessToken = await refreshTokenIfNeeded(user);
-        await fetchAndStoreRuns(user.id, accessToken);
-      } catch (err) {
+        if (accessToken) {
+          await fetchAndStoreRuns(user.id, accessToken);
+        }
+      } catch (err: unknown) {
         console.error(`❌ Failed for ${user.email}:`, err);
       }
     }
@@ -131,11 +159,11 @@ Deno.serve(async () => {
         },
       },
     );
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("❌ Sync failed:", err);
     return new Response(
       JSON.stringify({
-        error: err.message,
+        error: err instanceof Error ? err.message : "Unknown error",
       }),
       {
         status: 500,

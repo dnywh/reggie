@@ -71,4 +71,5 @@ Email → Cloudflare Worker → Supabase Edge Function → Database/Processing
 
 ## Documentation
 
-- [Email Worker README](./workers/email-to-supabase/README.md)
+- [Email worker README](./workers/email-to-supabase/README.md)
+- [Schema management README](./supabase/README.md)

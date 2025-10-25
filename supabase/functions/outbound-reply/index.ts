@@ -58,7 +58,7 @@ Deno.serve(async () => {
 
       const html = isNewUser
         ? `
-<p>G'day, Reggie here.</p>
+<p>G’day, Reggie here.</p>
 
 <p>Thanks for emailing. I’d be happy to help.</p>
 <p>The first step is hooking up to Strava so I can keep an eye on your runs. Let's set it up now:</p>
