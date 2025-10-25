@@ -2,7 +2,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const REGGIE_URL = Deno.env.get("REGGIE_URL");
-const DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions";
+const OPENAI_API_URL = Deno.env.get("OPENAI_API_URL");
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL");
 
 // Format pace from numeric minutes per km (e.g., 4.97) to time format (e.g., "4:56")
 function formatPace(paceMinKm: number | null): string {
@@ -150,7 +151,7 @@ Deno.serve(async (_req: Request) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
   const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
   const resend = new Resend(RESEND_API_KEY);
@@ -272,7 +273,7 @@ Deno.serve(async (_req: Request) => {
         "Howdy",
       ];
 
-      // 3️⃣ Prepare DeepSeek prompt
+      // 3️⃣ Prepare prompt
       const systemPrompt = `
 You are Reggie the Numbat, a running coach who writes short, cheeky morning check-ins in Australian English.
 Give one paragraph of advice for today based on the runner’s recent activity and their broader goals.
@@ -346,15 +347,15 @@ Keep it short (under 80 words). Use Australian English.
       ];
 
       console.log(`${email} – User prompt:`, userPrompt);
-      // 4️⃣ Call DeepSeek
-      const llmResponse = await fetch(DEEPSEEK_API_URL, {
+      // 4️⃣ Call LLM
+      const llmResponse = await fetch(OPENAI_API_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: OPENAI_MODEL,
           messages: [
             {
               role: "system",
