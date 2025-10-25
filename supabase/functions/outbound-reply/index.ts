@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID");
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const REGGIE_URL = Deno.env.get("REGGIE_URL");
 const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
@@ -50,7 +51,7 @@ Deno.serve(async () => {
       // Generate message content based on user status
       // TODO: Test https://www.strava.com/oauth/mobile/authorize. Does it open in the Strava app?
       const stravaUrl =
-        `https://www.strava.com/oauth/authorize?client_id=19982&response_type=code&redirect_uri=${
+        `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${
           encodeURIComponent(`${SUPABASE_URL}/functions/v1/strava-callback`)
         }&scope=read,activity:read_all&state=${
           encodeURIComponent(reply.email)
@@ -78,7 +79,7 @@ Reg</p>
 
 <p>P.P.S. did you know you can <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">automatically upload</a> your runs to Strava from your running watch?</p>
 `
-: `
+        : `
 <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
 
 <p>I'll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) if you need help with something other than your training program.</p>
