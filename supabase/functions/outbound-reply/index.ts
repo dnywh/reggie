@@ -75,9 +75,7 @@ Reg</p>
 
 <p>---</p>
 
-<p>P.S. you can upload your Strava runs as ‘private’ if you prefer. They’ll still come through.
-
-<p>P.P.S. did you know you can <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">automatically upload</a> your runs to Strava from your running watch?</p>
+<p>P.S. you can upload your Strava runs as ‘private’ and they’ll still come through, unless you uncheck that box. Also, did you know you can <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">automatically upload</a> your runs via your running watch?</p>
 `
         : `
 <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
