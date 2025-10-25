@@ -65,15 +65,18 @@ Deno.serve(async () => {
 
 <a href="${stravaUrl}">Connect with Strava</a>
 
-<p>You can disconnect or delete your data at any time. My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
+<p>You can disconnect or delete your data at any time. More info <a href="${REGGIE_URL}/strava">here</a>.</p>
+
+<p>My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
+
 <p>Cheers,<br />
 Reg</p>
 
 <p>---</p>
 
-<p>P.S. you can upload your Strava runs as ‘private’ if you prefer. They’ll still come through to me.
+<p>P.S. you can upload your Strava runs as ‘private’ if you prefer. They’ll still come through.
 
-<p>P.P.S. did you know you can automatically upload your runs to Strava from your running watch? More info <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">here</a>.</p>
+<p>P.P.S. did you know you can <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">automatically upload</a> your runs to Strava from your running watch?</p>
 `
 : `
 <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>

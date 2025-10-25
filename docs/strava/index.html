@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strava | reggie.run</title>
+  </head>
+  <body>
+    <h1>Strava</h1>
+    <p>
+      I use Strava to keep an eye on your running activity. Here’s exactly what
+      I see, how it’s used, and how you can disconnect or delete your data.
+    </p>
+
+    <details>
+      <summary>What type of data is collected?</summary>
+      <p>
+        When you first connect your Strava account, I collect your first name
+        and time zone, so I can personalise the emails I send you and have them
+        scheduled in your morning. That’s it.
+      </p>
+
+      <p>
+        After that, once a day, I fetch your running activity data from Strava.
+        I’m looking at the distance, duration, and pace. I do <em>not</em> look
+        at your location data or other activity details. I’m just getting the
+        basics so I can send you an up-to-date training plan each day.
+      </p>
+    </details>
+    <details>
+      <summary>How is my data collected?</summary>
+      <p>
+        I use the official Strava API that you need to explicitly authorise (and
+        can disconnect at any time).
+      </p>
+    </details>
+    <details>
+      <summary>How can I withdraw my consent?</summary>
+      <p>
+        You can disconnect me from
+        <a href="https://www.strava.com/settings/apps">your Strava account</a>
+        at any time. I’ll automatically delete your data from my system and stop
+        sending you emails.
+      </p>
+    </details>
+    <details>
+      <summary>How can I request deletion?</summary>
+      <p>There a re a few ways:</p>
+      <ol>
+        <li>
+          Through the aforementioned
+          <a href="https://www.strava.com/settings/apps">Strava account</a>
+          method
+        </li>
+        <li>
+          By emailing my human assistant Danny at
+          <a class="help-email-link" href="#"></a>
+        </li>
+        <li>By clicking the ‘preferences’ link in the emails I send you</li>
+      </ol>
+    </details>
+    <details>
+      <summary>What else do I need to know?</summary>
+
+      <p>
+        Check out my <a href="/legal">legal page</a> for a broader picture of
+        how I handle your data.
+      </p>
+    </details>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/support">Support</a></li>
+        <li><a href="/legal">Legal</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Decode the base64-encoded email address (for assistance)
+      const encodedEmail = "bWFrZUByZWdnaWUucnVu";
+      const decodedEmail = atob(encodedEmail);
+      // Update the main email link
+      const helpEmailLinks = document.getElementsByClassName("help-email-link");
+      for (const helpEmailLink of helpEmailLinks) {
+        helpEmailLink.href =
+          "mailto:" + decodedEmail + "?subject=Hey Reggie, I need help";
+        helpEmailLink.textContent = decodedEmail;
+      }
+    </script>
+  </body>
+</html>

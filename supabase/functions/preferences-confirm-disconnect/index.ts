@@ -3,6 +3,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID");
+const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET");
 
 Deno.serve(async (req: Request) => {
     try {
@@ -39,7 +41,7 @@ Deno.serve(async (req: Request) => {
         action,
         expires_at,
         used,
-        users!inner(id, name, email, strava_access_token)
+        users!inner(id, name, email, strava_access_token, strava_refresh_token)
       `)
             .eq("token", token)
             .eq("action", "disconnect")
@@ -96,19 +98,90 @@ Deno.serve(async (req: Request) => {
             });
         }
 
-        // Deauthorize from Strava (if we have access token)
-        if (tokenData.users.strava_access_token) {
+        // Deauthorize from Strava (attempt token refresh if needed)
+        const joinedUser = Array.isArray(tokenData.users)
+            ? tokenData.users[0]
+            : tokenData.users;
+        if (
+            joinedUser?.strava_access_token || joinedUser?.strava_refresh_token
+        ) {
             try {
-                await fetch("https://www.strava.com/oauth/deauthorize", {
-                    method: "POST",
-                    headers: {
-                        "Authorization":
-                            `Bearer ${tokenData.users.strava_access_token}`,
-                    },
-                });
-                console.log("Strava deauthorization successful");
+                // Try deauthorize with existing access token first
+                let accessToken = joinedUser.strava_access_token as
+                    | string
+                    | null;
+                let deauthRes: Response | null = null;
+
+                if (accessToken) {
+                    deauthRes = await fetch(
+                        "https://www.strava.com/oauth/deauthorize",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Authorization": `Bearer ${accessToken}`,
+                            },
+                        },
+                    );
+                }
+
+                // If we didn't have an access token, or it failed (e.g., expired), try refreshing
+                if (!deauthRes || !deauthRes.ok) {
+                    if (
+                        joinedUser.strava_refresh_token && STRAVA_CLIENT_ID &&
+                        STRAVA_CLIENT_SECRET
+                    ) {
+                        try {
+                            const refreshRes = await fetch(
+                                "https://www.strava.com/oauth/token",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                        client_id: STRAVA_CLIENT_ID,
+                                        client_secret: STRAVA_CLIENT_SECRET,
+                                        grant_type: "refresh_token",
+                                        refresh_token:
+                                            joinedUser.strava_refresh_token,
+                                    }),
+                                },
+                            );
+
+                            if (refreshRes.ok) {
+                                const refreshed = await refreshRes.json() as {
+                                    access_token: string;
+                                };
+                                accessToken = refreshed.access_token;
+                                deauthRes = await fetch(
+                                    "https://www.strava.com/oauth/deauthorize",
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            "Authorization":
+                                                `Bearer ${accessToken}`,
+                                        },
+                                    },
+                                );
+                            }
+                        } catch (refreshErr) {
+                            console.error(
+                                "Strava token refresh failed:",
+                                refreshErr,
+                            );
+                        }
+                    }
+                }
+
+                if (deauthRes && deauthRes.ok) {
+                    console.log("Strava deauthorization successful");
+                } else {
+                    console.warn(
+                        "Strava deauthorization may not have succeeded; proceeding with local deletion",
+                    );
+                }
             } catch (error) {
-                console.error("Strava deauthorization failed:", error);
+                console.error("Strava deauthorization error:", error);
                 // Continue with deletion even if Strava deauth fails
             }
         }
@@ -132,7 +205,7 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(
-            `✅ Successfully disconnected and deleted user: ${tokenData.users.email}`,
+            `✅ Successfully disconnected and deleted user: ${joinedUser?.email}`,
         );
 
         // Redirect to success page
