@@ -391,7 +391,7 @@ ${formattedAdvice}
 ${
         yesterdayRuns?.length
           ? `
-<p>Here's what you ran yesterday:</p>
+<p>Here’s what you ran yesterday:</p>
 
 <ul>
 ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
@@ -399,14 +399,12 @@ ${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
 `
           : ""
       }
-<p>Here's the plan for the next few days:</p>
+<p>Here’s the plan for the next few days:</p>
 
 <ul>
-<li>Today: TBD</li>
-<li>Tomorrow: TBD</li>
-<li>Friday: TBD</li>
-<li>Saturday: TBD</li>
-<li>Sunday: TBD</li>
+<li><strong>Today:</strong> TBD from training plan</li>
+<li><strong>Tomorrow:</strong> TBD from training plan</li>
+<li><strong>Monday:</strong> TBD from training plan</li>
 </ul>
 
 <p>${
