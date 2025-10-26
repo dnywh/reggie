@@ -54,13 +54,40 @@ function randomSelect<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
 
+// Helper function to format additional run metrics
+function formatAdditionalMetrics(
+  elevation: number | null,
+  avgHr: number | null,
+  maxHr: number | null,
+  sufferScore: number | null,
+): string {
+  const metrics: string[] = [];
+
+  if (elevation !== null && elevation > 0) {
+    metrics.push(`${Math.round(elevation)}m elevation`);
+  }
+
+  if (avgHr !== null && maxHr !== null) {
+    metrics.push(`avg HR ${Math.round(avgHr)}, max ${Math.round(maxHr)}`);
+  } else if (avgHr !== null) {
+    metrics.push(`avg HR ${Math.round(avgHr)}`);
+  } else if (maxHr !== null) {
+    metrics.push(`max HR ${Math.round(maxHr)}`);
+  }
+
+  if (sufferScore !== null && sufferScore > 0) {
+    metrics.push(`intensity ${Math.round(sufferScore)}`);
+  }
+
+  return metrics.length > 0 ? ` (${metrics.join(", ")})` : "";
+}
+
 // Check if it's currently morning in the user's timezone
 function isMorningInTimezone(timezone: string | null): boolean {
   const now = new Date();
 
   if (!timezone) {
     const hour = now.getHours();
-    console.log(`Hour (no timezone): ${hour}`);
     console.log(`Is early morning: ${hour >= 3 && hour < 6}`);
     return hour >= 3 && hour < 6;
   }
@@ -148,7 +175,7 @@ Deno.serve(async (_req: Request) => {
         "runs",
       )
         .select(
-          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
+          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, total_elevation_gain, average_heartrate, max_heartrate, suffer_score",
         )
         .eq("user_id", user_id)
         .gte("start_date_local", daysAgoStr + "T00:00:00")
@@ -207,13 +234,24 @@ Deno.serve(async (_req: Request) => {
             distance_km: number | null;
             duration_min: number | null;
             avg_pace_min_km: number | null;
+            total_elevation_gain: number | null;
+            average_heartrate: number | null;
+            max_heartrate: number | null;
+            suffer_score: number | null;
           },
           _i: number,
         ) => {
           if (!r.start_date_local || !effectiveTimezone) {
             return `${r.distance_km ?? "?"}km in ${
               formatDuration(r.duration_min)
-            } (${formatPace(r.avg_pace_min_km)}/km)`;
+            } (${formatPace(r.avg_pace_min_km)}/km)${
+              formatAdditionalMetrics(
+                r.total_elevation_gain,
+                r.average_heartrate,
+                r.max_heartrate,
+                r.suffer_score,
+              )
+            }`;
           }
 
           // Get today's date in the user's timezone
@@ -237,7 +275,14 @@ Deno.serve(async (_req: Request) => {
 
           return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
             formatDuration(r.duration_min)
-          } (${formatPace(r.avg_pace_min_km)}/km)`;
+          } (${formatPace(r.avg_pace_min_km)}/km)${
+            formatAdditionalMetrics(
+              r.total_elevation_gain,
+              r.average_heartrate,
+              r.max_heartrate,
+              r.suffer_score,
+            )
+          }`;
         },
       ) || [];
 
@@ -279,10 +324,11 @@ ${todayInUserTimezone}.
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentRuns.join(", ")}
 ---
-Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
+Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
+If I ran yesterday, give me brief feedback on that run.
+Give advice on exactly what to do today in regards to my training plan you created for me, taking into account my recent activity.
 If the training plan suggests a run, provide a specific distance and target pace.
 You can specify high-level negative splits if applicable.
-Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
 `;
 
       const subjectVariations = [
@@ -312,11 +358,6 @@ Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
         "Reg",
         "Reggie",
         "Reginald",
-      ];
-
-      const preferenceTextVariations = [
-        "Let me know",
-        "Edit your preferences",
       ];
 
       console.log(`${email} – User prompt:`, userPrompt);
@@ -372,9 +413,7 @@ ${randomSelect(nameVariations)}</p>
 
 <p>---</p>
 
-<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${
-        randomSelect(preferenceTextVariations)
-      }</a>.</p>
+<p><a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Preferences</a></p>
 `;
 
       // 6️⃣ Send via Resend

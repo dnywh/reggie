@@ -67,6 +67,10 @@ interface StravaActivity {
     timezone?: string;
     start_date_local: string;
     name?: string;
+    total_elevation_gain?: number;
+    average_heartrate?: number;
+    max_heartrate?: number;
+    suffer_score?: number;
 }
 
 function formatActivity(activity: StravaActivity, userId: string) {
@@ -97,6 +101,10 @@ function formatActivity(activity: StravaActivity, userId: string) {
         duration_min,
         avg_pace_min_km,
         notes: activity.name ?? null,
+        total_elevation_gain: activity.total_elevation_gain ?? null,
+        average_heartrate: activity.average_heartrate ?? null,
+        max_heartrate: activity.max_heartrate ?? null,
+        suffer_score: activity.suffer_score ?? null,
     };
 }
 
@@ -104,7 +112,7 @@ interface WebhookEvent {
     object_type: "activity" | "athlete";
     object_id: number;
     aspect_type: "create" | "update" | "delete";
-    updates?: Record<string, any>;
+    updates?: Record<string, unknown>;
     owner_id: string;
     subscription_id: number;
     event_time: number;

@@ -26,6 +26,10 @@ interface StravaActivity {
   timezone?: string;
   start_date_local: string;
   name?: string;
+  total_elevation_gain?: number;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  suffer_score?: number;
 }
 
 async function refreshTokenIfNeeded(user: User) {
@@ -97,13 +101,17 @@ async function fetchAndStoreRuns(userId: string, accessToken: string) {
 
     return {
       user_id: userId,
-      strava_id: a.id,
+      strava_id: a.id, // The run's unique identifier in Strava
       start_date_local: start_date_local, // Local time stored directly (timestamp column)
       timezone: timezone, // Run-specific timezone
       distance_km,
       duration_min,
       avg_pace_min_km,
       notes: a.name ?? null,
+      total_elevation_gain: a.total_elevation_gain ?? null,
+      average_heartrate: a.average_heartrate ?? null,
+      max_heartrate: a.max_heartrate ?? null,
+      suffer_score: a.suffer_score ?? null,
     };
   });
   const { error } = await supabase.from("runs").upsert(formatted, {
@@ -116,7 +124,7 @@ async function fetchAndStoreRuns(userId: string, accessToken: string) {
   const { data: storedRuns } = await supabase.from("runs")
     .select("strava_id, start_date_local, timezone")
     .eq("user_id", userId)
-    .in("strava_id", formatted.map((f: any) => f.strava_id))
+    .in("strava_id", formatted.map((f) => f.strava_id))
     .order("start_date_local", { ascending: false });
 
   console.log(`📊 What's actually stored in DB:`);
