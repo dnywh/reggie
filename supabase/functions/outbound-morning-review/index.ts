@@ -39,48 +39,47 @@ function formatDuration(durationMin: number | null): string {
   return `${minutes}m ${seconds}s`;
 }
 
-// Check if a run happened "yesterday" based on the run's actual timezone
-function isRunFromYesterday(run: any, _userTimezone: string | null): boolean {
-  if (!run.start_date_local || !run.timezone) {
-    // Fallback: if no timezone data, assume it's not yesterday
-    // (since we can't determine timezone accurately)
-    console.log("No timezone data, assuming it's not yesterday");
-    return false;
-  }
-
-  // Since start_date_local is now stored as local time (timestamp column),
-  // we need to interpret it correctly in the run's timezone
-  const runTimezone = run.timezone;
-
-  // Parse the stored local time and treat it as if it's in the run's timezone
-  // const runDate = new Date(run.start_date_local);
-  const now = new Date();
-
-  // Get "yesterday" in the run's timezone
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: runTimezone,
+// Helper function to create a date formatter for timezone-aware date formatting
+function createDateFormatter(timezone: string | null) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone || undefined,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   });
+}
 
-  // Get yesterday's date in the run's timezone
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = formatter.format(yesterday);
+// Helper function to randomly select from an array
+function randomSelect<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)];
+}
 
-  // For the run date, we need to interpret the stored local time in the run's timezone
-  // Since it's stored as local time in format "2025-10-14T06:25:16", we can extract the date part
-  const runDateStr = run.start_date_local.split("T")[0]; // Extract YYYY-MM-DD part
+// Helper function to format additional run metrics
+function formatAdditionalMetrics(
+  elevation: number | null,
+  avgHr: number | null,
+  maxHr: number | null,
+  sufferScore: number | null,
+): string {
+  const metrics: string[] = [];
 
-  console.log(
-    `Date comparison: runDateStr: ${runDateStr}, yesterdayStr: ${yesterdayStr}`,
-  );
-  console.log(
-    `Run details: start_date_local=${run.start_date_local}, timezone=${run.timezone}`,
-  );
+  if (elevation !== null && elevation > 0) {
+    metrics.push(`${Math.round(elevation)}m elevation`);
+  }
 
-  return runDateStr === yesterdayStr;
+  if (avgHr !== null && maxHr !== null) {
+    metrics.push(`avg HR ${Math.round(avgHr)}, max ${Math.round(maxHr)}`);
+  } else if (avgHr !== null) {
+    metrics.push(`avg HR ${Math.round(avgHr)}`);
+  } else if (maxHr !== null) {
+    metrics.push(`max HR ${Math.round(maxHr)}`);
+  }
+
+  if (sufferScore !== null && sufferScore > 0) {
+    metrics.push(`intensity ${Math.round(sufferScore)}`);
+  }
+
+  return metrics.length > 0 ? ` (${metrics.join(", ")})` : "";
 }
 
 // Check if it's currently morning in the user's timezone
@@ -89,7 +88,6 @@ function isMorningInTimezone(timezone: string | null): boolean {
 
   if (!timezone) {
     const hour = now.getHours();
-    console.log(`Hour (no timezone): ${hour}`);
     console.log(`Is early morning: ${hour >= 3 && hour < 6}`);
     return hour >= 3 && hour < 6;
   }
@@ -104,8 +102,8 @@ function isMorningInTimezone(timezone: string | null): boolean {
   const hour = parseInt(formatter.format(now));
   console.log(`Hour in ${timezone}: ${hour}`);
   console.log(`Is early morning: ${hour >= 3 && hour < 6}`);
-  // Consider it "morning" between 2:00 AM and 6:00 AM local time
-  // This ensures emails are sent before people typically run (around 7 AM)
+  // Consider it "morning" between 3:00 AM and 6:00 AM local time
+  // This ensures emails are sent before people start their morning run
   return hour >= 3 && hour < 6;
 }
 
@@ -125,12 +123,7 @@ function getDaysAgoInTimezone(
 
   // Use proper timezone conversion to get the date in user's timezone
   // en-CA provides YYYY-MM-DD format
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  const formatter = createDateFormatter(timezone);
 
   const pastDate = new Date(now);
   pastDate.setDate(pastDate.getDate() - daysAgo);
@@ -182,7 +175,7 @@ Deno.serve(async (_req: Request) => {
         "runs",
       )
         .select(
-          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, rpe, notes",
+          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, total_elevation_gain, average_heartrate, max_heartrate, suffer_score",
         )
         .eq("user_id", user_id)
         .gte("start_date_local", daysAgoStr + "T00:00:00")
@@ -221,17 +214,9 @@ Deno.serve(async (_req: Request) => {
       // Log when morning check is skipped for testing
       if (skipMorningCheck) {
         console.log(
-          `${email} – Morning check skipped for testing (skip_morning_check=true)`,
+          `${email} – Morning check skipped for testing`,
         );
       }
-
-      // Get yesterday's runs specifically for email display
-      // We'll filter these from recentRuns using the new timezone-aware logic
-      const yesterdayRuns = recentRuns?.filter((run: any) =>
-        isRunFromYesterday(run, effectiveTimezone)
-      ) || [];
-
-      console.log(`${email} – Yesterday's runs count: ${yesterdayRuns.length}`);
 
       // All users who are is_active should have a training plan
       // But just check anyway
@@ -240,28 +225,66 @@ Deno.serve(async (_req: Request) => {
         console.log(`${email} – Missing training plan`);
         continue;
       }
-      // Format yesterday's runs for email display (if any)
-      const formattedYesterdayRuns = yesterdayRuns?.map((r: any) => {
-        return `${r.distance_km ?? "?"}km in ${
-          formatDuration(r.duration_min)
-        } (${formatPace(r.avg_pace_min_km)}/km)`;
-      }) || [];
 
-      // Format recent runs for LLM context (with days ago)
-      const formattedRecentRuns = recentRuns?.map((r: any, _i: number) => {
-        const runDate = new Date(r.start_date_local);
-        const daysAgo = Math.floor(
-          (new Date().getTime() - runDate.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        const dayLabel = daysAgo === 0
-          ? "today"
-          : daysAgo === 1
-          ? "yesterday"
-          : `${daysAgo} days ago`;
-        return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
-          formatDuration(r.duration_min)
-        } (${formatPace(r.avg_pace_min_km)}/km)`;
-      }) || [];
+      // Format recent runs for LLM context (with days ago), timezone-aware
+      const formattedRecentRuns = recentRuns?.map(
+        (
+          r: {
+            start_date_local: string;
+            distance_km: number | null;
+            duration_min: number | null;
+            avg_pace_min_km: number | null;
+            total_elevation_gain: number | null;
+            average_heartrate: number | null;
+            max_heartrate: number | null;
+            suffer_score: number | null;
+          },
+          _i: number,
+        ) => {
+          if (!r.start_date_local || !effectiveTimezone) {
+            return `${r.distance_km ?? "?"}km in ${
+              formatDuration(r.duration_min)
+            } (${formatPace(r.avg_pace_min_km)}/km)${
+              formatAdditionalMetrics(
+                r.total_elevation_gain,
+                r.average_heartrate,
+                r.max_heartrate,
+                r.suffer_score,
+              )
+            }`;
+          }
+
+          // Get today's date in the user's timezone
+          const formatter = createDateFormatter(effectiveTimezone);
+
+          const todayStr = formatter.format(new Date());
+          const runDateStr = r.start_date_local.split("T")[0]; // Extract YYYY-MM-DD part
+
+          // Calculate days difference
+          const today = new Date(todayStr);
+          const runDate = new Date(runDateStr);
+          const daysAgo = Math.floor(
+            (today.getTime() - runDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
+
+          const dayLabel = daysAgo === 0
+            ? "today"
+            : daysAgo === 1
+            ? "yesterday"
+            : `${daysAgo} days ago`;
+
+          return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
+            formatDuration(r.duration_min)
+          } (${formatPace(r.avg_pace_min_km)}/km)${
+            formatAdditionalMetrics(
+              r.total_elevation_gain,
+              r.average_heartrate,
+              r.max_heartrate,
+              r.suffer_score,
+            )
+          }`;
+        },
+      ) || [];
 
       console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
 
@@ -276,10 +299,9 @@ Deno.serve(async (_req: Request) => {
       // 3️⃣ Prepare prompt
       const systemPrompt = `
 You are Reggie the Numbat, a running coach who writes short, cheeky morning check-ins in Australian English.
-Give one paragraph of advice for today based on the runner’s recent activity and their broader goals.
 Use smart curly quotes (‘’ and “”) for quotation marks and apostrophes, not dumb straight quotes ('' and ""). Do not use em-dashes. 
 Be liberal with line breaks for readability.
-Be clear, concise, yet not robotic. Just a nice Numbat running coach.
+Keep responses conversational and under 100 words.
 `;
       // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
@@ -293,23 +315,20 @@ Be clear, concise, yet not robotic. Just a nice Numbat running coach.
       }).format(new Date());
 
       const userPrompt = `
-      TRAINING PLAN:
+TRAINING PLAN:
 ${trainingPlanSection}
 ---
-TODAY'S DATE:
+TODAY’S DATE:
 ${todayInUserTimezone}.
 ---
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentRuns.join(", ")}
 ---
-Give advice on exactly what to do today in regards to my training plan, taking into account my above recent activity.
-If the training plan suggests a run, provide a specific distance and pace.
-Start with a variation of "${
-        greetingVariations[
-          Math.floor(Math.random() * greetingVariations.length)
-        ]
-      }, ${name || "mate"}.".
-Keep it short (under 80 words). Use Australian English.
+Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
+If I ran yesterday, give me brief feedback on that run.
+Give advice on exactly what to do today in regards to my training plan you created for me, taking into account my recent activity.
+If the training plan suggests a run, provide a specific distance and target pace.
+You can specify high-level negative splits if applicable.
 `;
 
       const subjectVariations = [
@@ -321,7 +340,7 @@ Keep it short (under 80 words). Use Australian English.
       ];
 
       const reachOutVariations = [
-        "As always, flick me a reply if your plans change. I’ll tweak the schedule accordingly.",
+        "As always, flick me a reply if your plans change.",
         "Let me know if you have questions.",
         "Let me know if you need to change things up.",
         "Any changes, let me know.",
@@ -341,13 +360,11 @@ Keep it short (under 80 words). Use Australian English.
         "Reginald",
       ];
 
-      const preferenceTextVariations = [
-        "Let me know",
-        "Edit your preferences",
-      ];
-
       console.log(`${email} – User prompt:`, userPrompt);
       // 4️⃣ Call LLM
+      if (!OPENAI_API_URL) {
+        throw new Error("OPENAI_API_URL is not defined");
+      }
       const llmResponse = await fetch(OPENAI_API_URL, {
         method: "POST",
         headers: {
@@ -370,7 +387,9 @@ Keep it short (under 80 words). Use Australian English.
           max_tokens: 180,
         }),
       });
-      const llmJson = await llmResponse.json() as any;
+      const llmJson = await llmResponse.json() as {
+        choices?: { message?: { content?: string } }[];
+      };
       // Get the LLM response or fall back to a generic message
       const advice = llmJson?.choices?.[0]?.message?.content?.trim() ??
         `<p>You’re doing great, ${
@@ -380,53 +399,21 @@ Keep it short (under 80 words). Use Australian English.
       // Format advice text by wrapping each line in <p> tags
       const formattedAdvice = advice
         .split("\n")
-        .filter((line: string) =>
-          line.trim() !== ""
-        ) // Remove empty lines
+        .filter((line: string) => line.trim() !== "") // Remove empty lines
         .map((line: string) => `<p>${line.trim()}</p>`)
         .join("\n\n");
 
       const html = `
 ${formattedAdvice}
-${
-        yesterdayRuns?.length
-          ? `
-<p>Here's what you ran yesterday:</p>
 
-<ul>
-${formattedYesterdayRuns.map((r: string) => `<li>${r}</li>`)}
-</ul>
-`
-          : ""
-      }
-<p>Here's the plan for the next few days:</p>
+<p>${randomSelect(reachOutVariations)}</p>
 
-<ul>
-<li>Today: TBD</li>
-<li>Tomorrow: TBD</li>
-<li>Friday: TBD</li>
-<li>Saturday: TBD</li>
-<li>Sunday: TBD</li>
-</ul>
-
-<p>${
-        reachOutVariations[
-          Math.floor(Math.random() * reachOutVariations.length)
-        ]
-      }</p>
-
-<p>${
-        signOffVariations[Math.floor(Math.random() * signOffVariations.length)]
-      }</br>
-${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
+<p>${randomSelect(signOffVariations)}<br>
+${randomSelect(nameVariations)}</p>
 
 <p>---</p>
 
-<p>P.S. am I emailing too much? Too little? <a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">${
-        preferenceTextVariations[
-          Math.floor(Math.random() * preferenceTextVariations.length)
-        ]
-      }</a>.</p>
+<p><a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Preferences</a></p>
 `;
 
       // 6️⃣ Send via Resend
@@ -435,9 +422,7 @@ ${nameVariations[Math.floor(Math.random() * nameVariations.length)]}</p>
           from: FROM_EMAIL,
           to: email,
           // Randomly select a subject variation (e.g. "Morning, mate. Reggie here")
-          subject: subjectVariations[
-            Math.floor(Math.random() * subjectVariations.length)
-          ],
+          subject: randomSelect(subjectVariations),
           html,
         });
         console.log(`${email} – Successfully sent morning review email!`);

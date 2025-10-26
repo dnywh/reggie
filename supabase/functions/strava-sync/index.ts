@@ -26,6 +26,23 @@ interface StravaActivity {
   timezone?: string;
   start_date_local: string;
   name?: string;
+  total_elevation_gain?: number | string;
+  average_heartrate?: number | string;
+  max_heartrate?: number | string;
+  suffer_score?: number | string;
+}
+
+// Helper function to safely parse numeric values from Strava API
+function parseStravaNumber(
+  value: number | string | null | undefined,
+): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Math.round(value);
+  if (typeof value === "string") {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : Math.round(parsed);
+  }
+  return null;
 }
 
 async function refreshTokenIfNeeded(user: User) {
@@ -95,15 +112,40 @@ async function fetchAndStoreRuns(userId: string, accessToken: string) {
       console.log(`  Timezone: ${timezone}`);
     }
 
+    const parsedElevation = parseStravaNumber(a.total_elevation_gain);
+    const parsedAvgHr = parseStravaNumber(a.average_heartrate);
+    const parsedMaxHr = parseStravaNumber(a.max_heartrate);
+    const parsedSufferScore = parseStravaNumber(a.suffer_score);
+
+    // Log the parsing for debugging
+    if (
+      a.average_heartrate || a.max_heartrate || a.suffer_score ||
+      a.total_elevation_gain
+    ) {
+      console.log(`🏃 Run ${a.id} metrics:`);
+      console.log(
+        `  Raw elevation: ${a.total_elevation_gain} -> ${parsedElevation}`,
+      );
+      console.log(`  Raw avg HR: ${a.average_heartrate} -> ${parsedAvgHr}`);
+      console.log(`  Raw max HR: ${a.max_heartrate} -> ${parsedMaxHr}`);
+      console.log(
+        `  Raw suffer score: ${a.suffer_score} -> ${parsedSufferScore}`,
+      );
+    }
+
     return {
       user_id: userId,
-      strava_id: a.id,
+      strava_id: a.id, // The run's unique identifier in Strava
       start_date_local: start_date_local, // Local time stored directly (timestamp column)
       timezone: timezone, // Run-specific timezone
       distance_km,
       duration_min,
       avg_pace_min_km,
       notes: a.name ?? null,
+      total_elevation_gain: parsedElevation,
+      average_heartrate: parsedAvgHr,
+      max_heartrate: parsedMaxHr,
+      suffer_score: parsedSufferScore,
     };
   });
   const { error } = await supabase.from("runs").upsert(formatted, {
@@ -116,7 +158,7 @@ async function fetchAndStoreRuns(userId: string, accessToken: string) {
   const { data: storedRuns } = await supabase.from("runs")
     .select("strava_id, start_date_local, timezone")
     .eq("user_id", userId)
-    .in("strava_id", formatted.map((f: any) => f.strava_id))
+    .in("strava_id", formatted.map((f) => f.strava_id))
     .order("start_date_local", { ascending: false });
 
   console.log(`📊 What's actually stored in DB:`);

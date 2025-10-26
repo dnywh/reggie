@@ -57,6 +57,24 @@ enabled = true
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
 
+# Custom: Disables authentication the below functions.
+[functions.strava-callback]
+verify_jwt = false
+[functions.preferences-disconnect]
+verify_jwt = false
+[functions.preferences-pause]
+verify_jwt = false
+[functions.preferences-request-data]
+verify_jwt = false
+[functions.preferences-resume]
+verify_jwt = false
+[functions.preferences-confirm-disconnect]
+verify_jwt = false
+[functions.preferences-confirm-pause]
+verify_jwt = false
+[functions.preferences-confirm-resume]
+verify_jwt = false
+
 [realtime]
 enabled = true
 # Bind realtime via either IPv4 or IPv6. (default: IPv4)
