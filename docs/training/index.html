@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Training plan | reggie.run</title>
+    <style>
+        section {
+          margin: 2rem 0;
+        }
+  
+        section h2 {
+          margin-top: 0;
+        }
+  
+        /*  button {
+          background-color: #007bff;
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 4px;
+          cursor: pointer;
+          margin: 0.5rem 0;
+        }
+  
+     button:hover {
+          background-color: #0056b3;
+        }
+  
+        button:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
+        }
+  
+        button.danger {
+          background-color: #dc3545;
+        }
+  
+        button.danger:hover {
+          background-color: #c82333;
+        } */
+  
+        .loading {
+          opacity: 0.6;
+        }
+  
+        .message {
+          padding: 1rem;
+          margin: 1rem 0;
+          border-radius: 4px;
+        }
+  
+        .success {
+          background-color: #d4edda;
+          color: #155724;
+          border: 1px solid #c3e6cb;
+        }
+  
+        .error {
+          background-color: #f8d7da;
+          color: #721c24;
+          border: 1px solid #f5c6cb;
+        }
+  
+        .warning {
+          background-color: #fff3cd;
+          color: #856404;
+          border: 1px solid #ffeaa7;
+        }
+      </style>
+  </head>
+  <body>
+    <h1>Training plan</h1>
+
+    <div id="user-info">
+      <p id="greeting">Loading...</p>
+    </div>
+
+    <div id="message-container"></div>
+
+    <p>Coming soon: your training plan in-full.</p>
+    <p>Up top: today, tomorrow, and the next day. And so on.</p>
+    <p>Possibly folded above that, or below, past days and weeks. It really depends on how much we store, especially after folks make changes to their plan.</p>
+
+    <footer>
+      <hr />
+
+      <p>&copy; Numbat Industries, 2025</p>
+
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/support">Support</a></li>
+        <li><a href="/legal">Legal</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      // Global variables
+      let name, email, token;
+
+            // Show message helper
+            function showMessage(text, type) {
+        const container = document.getElementById("message-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = text;
+        container.appendChild(messageDiv);
+
+        // Auto-remove after 5 seconds
+        // setTimeout(() => {
+        //   if (messageDiv.parentNode) {
+        //     messageDiv.parentNode.removeChild(messageDiv);
+        //   }
+        // }, 5000);
+      }
+
+
+      // Initialize the page
+      function initializePage() {
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        console.log("Full URL:", window.location.href);
+        console.log("Search params:", window.location.search);
+        console.log("URLSearchParams:", urlParams);
+        console.log("URLSearchParams size:", urlParams.size);
+
+        name = urlParams.get("name");
+        email = urlParams.get("email");
+        token = urlParams.get("token");
+
+        console.log("Parsed values:", { name, email, token   });
+
+        // Validate required parameters (only email is required)
+        if (!email || !token) {
+          showMessage(
+            "Missing email or token. Please use the training plan link in your email to access this page.",
+            "error"
+          );
+          document.getElementById("greeting").textContent = "Invalid access";
+          return;
+        }
+
+        // Display personalized greeting (name is optional)
+        const greeting = name ? `G’day ${name}!` : "G’day!";
+        document.getElementById("greeting").textContent = greeting;
+      }
+
+      // Initialize when page loads
+      document.addEventListener("DOMContentLoaded", initializePage);
+    </script>
+  </body>
+</html>

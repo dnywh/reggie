@@ -5,6 +5,10 @@ const REGGIE_URL = Deno.env.get("REGGIE_URL");
 const OPENAI_API_URL = Deno.env.get("OPENAI_API_URL");
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL");
 
+// Temporary token to view the training plan
+// Should be stored in the database and associated with the user for privacy
+const trainingPlanToken = crypto.randomUUID();
+
 // Format pace from numeric minutes per km (e.g., 4.97) to time format (e.g., "4:56")
 function formatPace(paceMinKm: number | null): string {
   if (paceMinKm === null || paceMinKm === undefined) {
@@ -413,7 +417,8 @@ ${randomSelect(nameVariations)}</p>
 
 <p>---</p>
 
-<p><a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Preferences</a></p>
+<p><a href="${REGGIE_URL}/training?name=${name}&email=${email}&token=${trainingPlanToken}">View training plan</a><br>
+<a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Edit preferences</a></p>
 `;
 
       // 6️⃣ Send via Resend
