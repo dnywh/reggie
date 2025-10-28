@@ -26,10 +26,11 @@ async function getUserTimezoneFromRecentActivity(
         );
 
         if (!res.ok) {
-            console.log(
-                "Failed to fetch recent activity for timezone detection",
+            const errorText = await res.text();
+            console.error(
+                `Failed to fetch recent activity for timezone detection: ${res.status} - ${errorText}`,
             );
-            return null;
+            throw new Error(`Strava API error ${res.status}: ${errorText}`);
         }
 
         const activities = await res.json() as any[];
@@ -57,7 +58,7 @@ async function getUserTimezoneFromRecentActivity(
         return timezone;
     } catch (error) {
         console.error("Error fetching timezone from recent activity:", error);
-        return null;
+        throw error; // Re-throw so caller can handle it
     }
 }
 
@@ -171,6 +172,24 @@ Deno.serve(async (req: Request) => {
             }
         } catch (error) {
             console.error("Error detecting timezone:", error);
+            
+            // If we get a 401, the token doesn't have the right permissions
+            // Don't accept the invalid token - reject the entire authorization
+            if (error instanceof Error && 
+                (error.message.includes('401') || error.message.includes('activity:read_permission'))) {
+                console.error("❌ Token missing required permissions - rejecting authorization");
+                return new Response(null, {
+                    status: 302,
+                    headers: {
+                        "Location": `https://www.reggie.run/strava/error?error=${
+                            encodeURIComponent(
+                                "Strava connection failed: You need to allow activity access. Perhaps you’ve set your Strava privacy settings to only visible to you?",
+                            )
+                        }`,
+                    },
+                });
+            }
+            
             timezone = "UTC";
         }
 
