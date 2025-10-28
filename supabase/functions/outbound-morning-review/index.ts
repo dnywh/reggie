@@ -417,8 +417,8 @@ ${randomSelect(nameVariations)}</p>
 
 <p>---</p>
 
-<p><a href="${REGGIE_URL}/training?name=${name}&email=${email}&token=${trainingPlanToken}">View training plan</a><br>
-<a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Edit preferences</a></p>
+<p><a href="${REGGIE_URL}/training?name=${name}&email=${email}&token=${trainingPlanToken}">View training plan</a></p>
+<p><a href="${REGGIE_URL}/preferences?name=${name}&email=${email}">Edit preferences</a></p>
 `;
 
       // 6️⃣ Send via Resend

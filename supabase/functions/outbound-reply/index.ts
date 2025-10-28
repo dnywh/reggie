@@ -49,9 +49,9 @@ Deno.serve(async () => {
       console.log(`🎯 User type: ${isNewUser ? "NEW" : "EXISTING"}`);
 
       // Generate message content based on user status
-      // TODO: Test https://www.strava.com/oauth/mobile/authorize. Does it open in the Strava app?
+      // Uses the /mobile/authorize endpoint to open in the Strava app if available
       const stravaUrl =
-        `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${
+        `https://www.strava.com/oauth/mobile/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${
           encodeURIComponent(`${SUPABASE_URL}/functions/v1/strava-callback`)
         }&scope=read,activity:read_all&state=${
           encodeURIComponent(reply.email)
@@ -61,21 +61,16 @@ Deno.serve(async () => {
         ? `
 <p>G’day, Reggie here.</p>
 
-<p>Thanks for emailing. I’d be happy to help.</p>
-<p>The first step is hooking up to Strava so I can keep an eye on your runs. Let's set it up now:</p>
+<p>I’d be happy to help. The first step is hooking up to Strava so I can keep an eye on your runs. Let's set it up now:</p>
 
 <a href="${stravaUrl}">Connect with Strava</a>
-
-<p>You can disconnect or delete your data at any time. More info <a href="${REGGIE_URL}/strava">here</a>.</p>
-
-<p>My human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) is around if you have any questions.</p>
 
 <p>Cheers,<br />
 Reg</p>
 
 <p>---</p>
 
-<p>P.S. you can upload your Strava runs as ‘private’ and they’ll still come through, unless you uncheck that box. Also, did you know you can <a href="https://support.strava.com/hc/en-us/articles/216917527-Health-App-and-Strava">automatically upload</a> your runs via your running watch?</p>
+<p>P.S. you can disconnect or delete your data at any time. More info <a href="${REGGIE_URL}/strava">here</a>.</p>
 `
         : `
 <p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
