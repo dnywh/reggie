@@ -218,6 +218,13 @@ Deno.serve(async () => {
         }
       } catch (err: unknown) {
         console.error(`❌ Failed for ${user.email}:`, err);
+        
+        // Check if this is a scope/permission error
+        if (err instanceof Error && err.message.includes('activity:read_permission')) {
+          // User probably unchecked private access - that's fine, just skip them
+          console.log(`ℹ️ Skipping activities for ${user.email} (no private access)`);
+          continue;
+        }
       }
     }
     return new Response(
