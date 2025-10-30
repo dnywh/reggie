@@ -4,12 +4,12 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const FROM_EMAIL = `Reggie <${Deno.env.get("REGGIE_EMAIL")}>`;
 
 Deno.serve(async () => {
-  const recipient = ""; // Falsy if empty string
+  const to = ""; // Falsy if empty string
 
   try {
     const subject = "";
     const html = `
-<p>Text goes here</p>
+<p>Text here.</p>
 
 <p>Reggie</p>
 `;
