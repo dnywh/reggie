@@ -9,6 +9,13 @@ const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET");
 
 console.info("🦘 Reggie's Strava sync booting up...");
 
+// The Strava API limits the number of activities returned to 30 per page
+// This page limit is essentially the amount of runs we'll sync per user per sync
+// Any future runs will be inserted as new rows in the runs table
+// So there is no upper bound on the number of runs we can sync per user
+// TODO: morning-review should limit the amount of runs it looks at to keep context limited
+const PER_PAGE = 30;
+
 interface User {
   id: string;
   email: string;
@@ -107,7 +114,7 @@ async function fetchAndStoreRuns(userId: string, accessToken: string) {
   console.log(`📥 Fetching runs for user ${userId} (token length: ${accessToken.length})`);
   
   const res = await fetch(
-    "https://www.strava.com/api/v3/athlete/activities?per_page=30",
+    `https://www.strava.com/api/v3/athlete/activities?per_page=${PER_PAGE}`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
