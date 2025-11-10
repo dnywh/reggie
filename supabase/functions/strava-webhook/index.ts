@@ -86,7 +86,7 @@ function formatActivity(activity: StravaActivity, userId: string) {
     let start_date_local = activity.start_date_local;
     if (activity.start_date_local && activity.start_date_local.endsWith("Z")) {
         start_date_local = activity.start_date_local.slice(0, -1); // Remove the Z
-        console.log(`🏃 Run ${activity.id}: Storing local time directly`);
+        console.log(`🏃 Activity ${activity.id} (${activity.type}): Storing local time directly`);
         console.log(`  Strava local: ${activity.start_date_local}`);
         console.log(`  Stored as: ${start_date_local}`);
         console.log(`  Timezone: ${timezone}`);
@@ -95,8 +95,9 @@ function formatActivity(activity: StravaActivity, userId: string) {
     return {
         user_id: userId,
         strava_id: activity.id,
+        type: activity.type, // Activity type (Run, Walk, Hike, etc.)
         start_date_local: start_date_local, // Local time stored directly (timestamp column)
-        timezone: timezone, // Run-specific timezone
+        timezone: timezone, // Activity-specific timezone
         distance_km,
         duration_min,
         avg_pace_min_km,
@@ -140,19 +141,19 @@ async function handleActivityEvent(event: WebhookEvent) {
         }
 
         if (event.aspect_type === "delete") {
-            // Remove the run from database
+            // Remove the activity from database
             const { error } = await supabase
-                .from("runs")
+                .from("activities")
                 .delete()
                 .eq("strava_id", event.object_id);
 
             if (error) {
                 console.error(
-                    `❌ Failed to delete run ${event.object_id}:`,
+                    `❌ Failed to delete activity ${event.object_id}:`,
                     error,
                 );
             } else {
-                console.log(`✅ Deleted run ${event.object_id}`);
+                console.log(`✅ Deleted activity ${event.object_id}`);
             }
             return;
         }
@@ -177,24 +178,18 @@ async function handleActivityEvent(event: WebhookEvent) {
 
         const activity = await res.json() as StravaActivity;
 
-        // Only process Run activities
-        if (activity.type !== "Run") {
-            console.log(`⏭️ Skipping non-run activity: ${activity.type}`);
-            return;
-        }
-
         const formatted = formatActivity(activity, user.id);
 
-        // Upsert the run
-        const { error } = await supabase.from("runs").upsert(formatted, {
+        // Upsert the activity
+        const { error } = await supabase.from("activities").upsert(formatted, {
             onConflict: "strava_id",
         });
 
         if (error) {
-            console.error(`❌ Failed to upsert run ${event.object_id}:`, error);
+            console.error(`❌ Failed to upsert activity ${event.object_id}:`, error);
         } else {
             console.log(
-                `✅ Processed ${event.aspect_type} for run ${event.object_id}`,
+                `✅ Processed ${event.aspect_type} for activity ${event.object_id} (${activity.type})`,
             );
         }
     } catch (err) {
@@ -225,7 +220,7 @@ async function handleAthleteEvent(event: WebhookEvent) {
                 );
             } else {
                 console.log(
-                    `✅ Deleted user ${event.object_id} and all associated runs (cascade)`,
+                    `✅ Deleted user ${event.object_id} and all associated activities (cascade)`,
                 );
             }
         }
