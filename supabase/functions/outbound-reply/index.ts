@@ -57,11 +57,12 @@ Deno.serve(async () => {
           encodeURIComponent(reply.email)
         }`;
 
-      const html = isNewUser
-        ? `
+      // Only send email to new users
+      if (isNewUser) {
+        const html = `
 <p>G’day, Reggie here.</p>
 
-<p>I’d be happy to help. The first step is hooking up to Strava so I can keep an eye on your runs. Let's set it up now:</p>
+<p>I’d be happy to help. The first step is hooking up to Strava so I can keep an eye on your runs. Let’s set it up now:</p>
 
 <a href="${stravaUrl}">Connect with Strava</a>
 
@@ -71,28 +72,18 @@ Reg</p>
 <p>---</p>
 
 <p>P.S. you can disconnect or delete your data at any time. More info <a href="${REGGIE_URL}/strava">here</a>.</p>
-`
-        : `
-<p>Hey ${user.name || "mate"}, confirming that I got your email.</p>
+`;
 
-<p>I'll get back to you soon with a proper response. You can also flick an email to my human assistant Danny (<a href="mailto:${ASSISTANCE_EMAIL}?subject=Hey Danny, I need help">${ASSISTANCE_EMAIL}</a>) if you need help with something other than your training program.</p>
-
-<p>Cheers,<br />
-Reg</p>
-
-
-<p>---</p>
-
-<p>P.S. am I emailing too much? Too little? You can <a href="${REGGIE_URL}/preferences?name=${user.name}&email=${reply.email}">edit your preferences</a> at any time.</p>
-        `;
-
-      console.log("📧 Sending email to:", reply.email);
-      await resend.emails.send({
-        from: FROM_EMAIL,
-        to: reply.email,
-        subject: "Got it",
-        html,
-      });
+        console.log("📧 Sending email to:", reply.email);
+        await resend.emails.send({
+          from: FROM_EMAIL,
+          to: reply.email,
+          subject: "Got it",
+          html,
+        });
+      } else {
+        console.log("⏭️ Skipping email to existing user (emailing Danny instead)");
+      }
 
       console.log("✅ Marking reply as sent");
       await supabase.from("pending_replies").update({

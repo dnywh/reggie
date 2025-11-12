@@ -101,6 +101,43 @@
     </section>
 
     <section>
+      <h2>Email frequency</h2>
+      <p>Choose which days of the week you want to receive morning review emails:</p>
+      <div id="frequency-checkboxes">
+        <label>
+          <input type="checkbox" id="day-monday" value="monday" />
+          Monday
+        </label>
+        <label>
+          <input type="checkbox" id="day-tuesday" value="tuesday" />
+          Tuesday
+        </label>
+        <label>
+          <input type="checkbox" id="day-wednesday" value="wednesday" />
+          Wednesday
+        </label>
+        <label>
+          <input type="checkbox" id="day-thursday" value="thursday" />
+          Thursday
+        </label>
+        <label>
+          <input type="checkbox" id="day-friday" value="friday" />
+          Friday
+        </label>
+        <label>
+          <input type="checkbox" id="day-saturday" value="saturday" />
+          Saturday
+        </label>
+        <label>
+          <input type="checkbox" id="day-sunday" value="sunday" />
+          Sunday
+        </label>
+      </div>
+      <button id="save-frequency-btn">Save frequency</button>
+      <p><small>Changes take effect immediately.</small></p>
+    </section>
+
+    <section>
       <h2>Request data</h2>
       <p>Request a copy of all data I have on file for you:</p>
       <button id="request-data-btn">Request your data</button>
@@ -208,8 +245,23 @@
         const greeting = name ? `G’day ${name}!` : "G’day!";
         document.getElementById("greeting").textContent = greeting;
 
+        // Load current frequency (defaults to daily/all checked)
+        loadFrequency();
+
         // Set up button event listeners
         setupEventListeners();
+      }
+
+      // Load frequency preferences (defaults to daily if not set)
+      function loadFrequency() {
+        // For MVP, default to daily (all days checked)
+        // In the future, we could fetch from an API endpoint
+        const checkboxes = document.querySelectorAll(
+          '#frequency-checkboxes input[type="checkbox"]'
+        );
+        checkboxes.forEach((cb) => {
+          cb.checked = true; // Default to daily
+        });
       }
 
       // Set up button event listeners
@@ -304,6 +356,60 @@
               showMessage(`Failed to request data: ${error.message}`, "error");
               btn.disabled = false;
               btn.textContent = "Request your data";
+            }
+          });
+
+        document
+          .getElementById("save-frequency-btn")
+          .addEventListener("click", async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Saving...";
+
+            try {
+              // Get selected days
+              const checkboxes = document.querySelectorAll(
+                '#frequency-checkboxes input[type="checkbox"]:checked'
+              );
+              const selectedDays = Array.from(checkboxes).map(
+                (cb) => cb.value
+              );
+
+              // Determine frequency value
+              let frequency;
+              if (selectedDays.length === 7) {
+                frequency = "daily";
+              } else if (selectedDays.length === 0) {
+                showMessage(
+                  "Please select at least one day.",
+                  "error"
+                );
+                btn.disabled = false;
+                btn.textContent = "Save frequency";
+                return;
+              } else {
+                frequency = selectedDays.join(",");
+              }
+
+              const result = await callAPI("preferences-update-frequency", {
+                name,
+                email,
+                frequency,
+              });
+
+              showMessage(
+                "Frequency preference saved! Changes take effect immediately.",
+                "success"
+              );
+              btn.disabled = false;
+              btn.textContent = "Save frequency";
+            } catch (error) {
+              showMessage(
+                `Failed to save frequency: ${error.message}`,
+                "error"
+              );
+              btn.disabled = false;
+              btn.textContent = "Save frequency";
             }
           });
       }

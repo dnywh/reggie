@@ -11,55 +11,7 @@ const supabase = createClient(
 const STRAVA_CLIENT_ID = Deno.env.get("STRAVA_CLIENT_ID")!;
 const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET")!;
 
-// Fetch user's timezone from their most recent activity
-async function getUserTimezoneFromRecentActivity(
-    accessToken: string,
-): Promise<string | null> {
-    try {
-        const res = await fetch(
-            "https://www.strava.com/api/v3/athlete/activities?per_page=1",
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            },
-        );
-
-        if (!res.ok) {
-            console.log(
-                "Failed to fetch recent activity for timezone detection",
-            );
-            return null;
-        }
-
-        const activities = await res.json() as any[];
-        if (!activities || activities.length === 0) {
-            console.log("No activities found for timezone detection");
-            return null;
-        }
-
-        const mostRecentActivity = activities[0] as any;
-        if (!mostRecentActivity.timezone) {
-            console.log("No timezone found in most recent activity");
-            return null;
-        }
-
-        // Extract timezone from Strava's timezone field (e.g., "(GMT-08:00) America/Los_Angeles")
-        const timezoneMatch = mostRecentActivity.timezone.match(
-            /\([^)]+\)\s*(.+)/,
-        );
-        const timezone = timezoneMatch ? timezoneMatch[1] : null;
-
-        if (timezone) {
-            console.log(`Detected timezone from recent activity: ${timezone}`);
-        }
-
-        return timezone;
-    } catch (error) {
-        console.error("Error fetching timezone from recent activity:", error);
-        return null;
-    }
-}
+// Timezone detection moved to strava-sync
 
 console.info("Strava callback running...");
 
@@ -144,7 +96,7 @@ Deno.serve(async (req: Request) => {
                 // lastname?: string;
             };
         };
-
+        
         // Validate required token data
         if (!data.access_token || !data.refresh_token || !data.expires_at) {
             console.error("Invalid token response:", data);
@@ -154,25 +106,11 @@ Deno.serve(async (req: Request) => {
         // 2️⃣ Prepare updates for the user
         const expiresIso = new Date(data.expires_at * 1000).toISOString();
         const name = data.athlete?.firstname ?? null;
+        
 
-        // Determine timezone from user's most recent activity
-        let timezone: string | null = null;
-        try {
-            timezone = await getUserTimezoneFromRecentActivity(
-                data.access_token,
-            );
-
-            // If we couldn't detect timezone from activities, fall back to UTC
-            if (!timezone) {
-                console.log(
-                    "Could not detect timezone from recent activity, falling back to UTC",
-                );
-                timezone = "UTC";
-            }
-        } catch (error) {
-            console.error("Error detecting timezone:", error);
-            timezone = "UTC";
-        }
+        // Let strava-sync handle timezone detection
+        // Just set to UTC for now
+        const timezone = "UTC";
 
         // 3️⃣ First check if user exists, then update the user record in Supabase by email
         const { data: _existingUser, error: lookupError } = await supabase

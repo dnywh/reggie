@@ -111,6 +111,35 @@ function isMorningInTimezone(timezone: string | null): boolean {
   return hour >= 3 && hour < 6;
 }
 
+// Check if email should be sent based on frequency preference
+function shouldSendEmail(
+  frequency: string | null,
+  timezone: string | null,
+): boolean {
+  // Default to daily if frequency is not set
+  if (!frequency || frequency === "daily") {
+    return true;
+  }
+
+  // Get today's day name in the user's timezone
+  const now = new Date();
+  const dayFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone || undefined,
+    weekday: "long",
+  });
+  const todayDayName = dayFormatter.format(now).toLowerCase();
+
+  // Check if today matches any of the selected days
+  const selectedDays = frequency.split(",").map((day) => day.trim().toLowerCase());
+  const shouldSend = selectedDays.includes(todayDayName);
+
+  console.log(
+    `Frequency check: ${frequency}, today: ${todayDayName}, should send: ${shouldSend}`,
+  );
+
+  return shouldSend;
+}
+
 // Timezone-aware date calculation functions
 function getDaysAgoInTimezone(
   timezone: string | null,
@@ -155,7 +184,7 @@ Deno.serve(async (_req: Request) => {
   try {
     // 1️⃣ Get all active users
     const { data: users, error: usersError } = await supabase.from("users")
-      .select("id, email, name, temp_training_plan, timezone").eq(
+      .select("id, email, name, temp_training_plan, timezone, morning_review_frequency").eq(
         "is_active",
         true,
       );
@@ -168,41 +197,41 @@ Deno.serve(async (_req: Request) => {
     let sentCount = 0;
     const dateRange = 14;
     for (
-      const { id: user_id, email, name, temp_training_plan, timezone } of users
+      const { id: user_id, email, name, temp_training_plan, timezone, morning_review_frequency } of users
     ) {
-      // 2️⃣ Get recent runs first to determine the most accurate timezone
+      // 2️⃣ Get recent activities first to determine the most accurate timezone
       // Use user's timezone as fallback for date range calculation
       const daysAgoStr = getDaysAgoInTimezone(timezone, dateRange);
       console.log(`${email} – Date range query: >= ${daysAgoStr}T00:00:00`);
 
-      const { data: recentRuns, error: recentRunsError } = await supabase.from(
-        "runs",
+      const { data: recentActivities, error: recentActivitiesError } = await supabase.from(
+        "activities",
       )
         .select(
-          "start_date_local, timezone, distance_km, duration_min, avg_pace_min_km, total_elevation_gain, average_heartrate, max_heartrate, suffer_score",
+          "start_date_local, timezone, type, distance_km, duration_min, avg_pace_min_km, total_elevation_gain, average_heartrate, max_heartrate, suffer_score",
         )
         .eq("user_id", user_id)
         .gte("start_date_local", daysAgoStr + "T00:00:00")
         .order("start_date_local", { ascending: false });
 
-      console.log({ recentRuns });
+      console.log({ recentActivities });
 
-      if (recentRunsError) {
+      if (recentActivitiesError) {
         console.error(
-          `${email} – Error fetching recent runs:`,
-          recentRunsError,
+          `${email} – Error fetching recent activities:`,
+          recentActivitiesError,
         );
         continue;
       }
 
-      // Determine the most accurate timezone: use most recent run's timezone if available, otherwise user's timezone
-      const effectiveTimezone = recentRuns?.length > 0 && recentRuns[0].timezone
-        ? recentRuns[0].timezone
+      // Determine the most accurate timezone: use most recent activity's timezone if available, otherwise user's timezone
+      const effectiveTimezone = recentActivities?.length > 0 && recentActivities[0].timezone
+        ? recentActivities[0].timezone
         : timezone;
 
       console.log(
         `${email} – Using timezone: ${effectiveTimezone} (from ${
-          recentRuns?.length > 0 ? "most recent run" : "user profile"
+          recentActivities?.length > 0 ? "most recent activity" : "user profile"
         })`,
       );
 
@@ -222,6 +251,14 @@ Deno.serve(async (_req: Request) => {
         );
       }
 
+      // Check if email should be sent based on frequency preference
+      if (!shouldSendEmail(morning_review_frequency, effectiveTimezone)) {
+        console.log(
+          `${email} – Skipping. Today doesn't match frequency preference (${morning_review_frequency})`,
+        );
+        continue;
+      }
+
       // All users who are is_active should have a training plan
       // But just check anyway
       // TODO: separate flow to guide users through setting up a training plan
@@ -230,11 +267,12 @@ Deno.serve(async (_req: Request) => {
         continue;
       }
 
-      // Format recent runs for LLM context (with days ago), timezone-aware
-      const formattedRecentRuns = recentRuns?.map(
+      // Format recent activities for LLM context (with days ago and activity type), timezone-aware
+      const formattedRecentActivities = recentActivities?.map(
         (
           r: {
             start_date_local: string;
+            type: string;
             distance_km: number | null;
             duration_min: number | null;
             avg_pace_min_km: number | null;
@@ -246,7 +284,7 @@ Deno.serve(async (_req: Request) => {
           _i: number,
         ) => {
           if (!r.start_date_local || !effectiveTimezone) {
-            return `${r.distance_km ?? "?"}km in ${
+            return `${r.distance_km ?? "?"}km ${r.type.toLowerCase()} in ${
               formatDuration(r.duration_min)
             } (${formatPace(r.avg_pace_min_km)}/km)${
               formatAdditionalMetrics(
@@ -262,13 +300,13 @@ Deno.serve(async (_req: Request) => {
           const formatter = createDateFormatter(effectiveTimezone);
 
           const todayStr = formatter.format(new Date());
-          const runDateStr = r.start_date_local.split("T")[0]; // Extract YYYY-MM-DD part
+          const activityDateStr = r.start_date_local.split("T")[0]; // Extract YYYY-MM-DD part
 
           // Calculate days difference
           const today = new Date(todayStr);
-          const runDate = new Date(runDateStr);
+          const activityDate = new Date(activityDateStr);
           const daysAgo = Math.floor(
-            (today.getTime() - runDate.getTime()) / (1000 * 60 * 60 * 24),
+            (today.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24),
           );
 
           const dayLabel = daysAgo === 0
@@ -277,7 +315,7 @@ Deno.serve(async (_req: Request) => {
             ? "yesterday"
             : `${daysAgo} days ago`;
 
-          return `${dayLabel}: ${r.distance_km ?? "?"}km in ${
+          return `${dayLabel}: ${r.distance_km ?? "?"}km ${r.type.toLowerCase()} in ${
             formatDuration(r.duration_min)
           } (${formatPace(r.avg_pace_min_km)}/km)${
             formatAdditionalMetrics(
@@ -290,7 +328,7 @@ Deno.serve(async (_req: Request) => {
         },
       ) || [];
 
-      console.log(`${email} – Formatted recent runs: ${formattedRecentRuns}`);
+      console.log(`${email} – Formatted recent activities: ${formattedRecentActivities}`);
 
       const greetingVariations = [
         "Alright",
@@ -326,10 +364,10 @@ TODAY’S DATE:
 ${todayInUserTimezone}.
 ---
 RECENT ACTIVITY (last ${dateRange} days):
-${formattedRecentRuns.join(", ")}
+${formattedRecentActivities.join(", ")}
 ---
 Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
-If I ran yesterday, give me brief feedback on that run.
+Give brief feedback on my recent activity, if any.
 Give advice on exactly what to do today in regards to my training plan you created for me, taking into account my recent activity.
 If the training plan suggests a run, provide a specific distance and target pace.
 You can specify high-level negative splits if applicable.
