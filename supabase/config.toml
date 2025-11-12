@@ -74,6 +74,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.preferences-confirm-resume]
 verify_jwt = false
+[functions.preferences-update-frequency]
+verify_jwt = false
 
 [realtime]
 enabled = true

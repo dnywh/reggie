@@ -111,6 +111,35 @@ function isMorningInTimezone(timezone: string | null): boolean {
   return hour >= 3 && hour < 6;
 }
 
+// Check if email should be sent based on frequency preference
+function shouldSendEmail(
+  frequency: string | null,
+  timezone: string | null,
+): boolean {
+  // Default to daily if frequency is not set
+  if (!frequency || frequency === "daily") {
+    return true;
+  }
+
+  // Get today's day name in the user's timezone
+  const now = new Date();
+  const dayFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone || undefined,
+    weekday: "long",
+  });
+  const todayDayName = dayFormatter.format(now).toLowerCase();
+
+  // Check if today matches any of the selected days
+  const selectedDays = frequency.split(",").map((day) => day.trim().toLowerCase());
+  const shouldSend = selectedDays.includes(todayDayName);
+
+  console.log(
+    `Frequency check: ${frequency}, today: ${todayDayName}, should send: ${shouldSend}`,
+  );
+
+  return shouldSend;
+}
+
 // Timezone-aware date calculation functions
 function getDaysAgoInTimezone(
   timezone: string | null,
@@ -155,7 +184,7 @@ Deno.serve(async (_req: Request) => {
   try {
     // 1️⃣ Get all active users
     const { data: users, error: usersError } = await supabase.from("users")
-      .select("id, email, name, temp_training_plan, timezone").eq(
+      .select("id, email, name, temp_training_plan, timezone, morning_review_frequency").eq(
         "is_active",
         true,
       );
@@ -168,7 +197,7 @@ Deno.serve(async (_req: Request) => {
     let sentCount = 0;
     const dateRange = 14;
     for (
-      const { id: user_id, email, name, temp_training_plan, timezone } of users
+      const { id: user_id, email, name, temp_training_plan, timezone, morning_review_frequency } of users
     ) {
       // 2️⃣ Get recent activities first to determine the most accurate timezone
       // Use user's timezone as fallback for date range calculation
@@ -220,6 +249,14 @@ Deno.serve(async (_req: Request) => {
         console.log(
           `${email} – Morning check skipped for testing`,
         );
+      }
+
+      // Check if email should be sent based on frequency preference
+      if (!shouldSendEmail(morning_review_frequency, effectiveTimezone)) {
+        console.log(
+          `${email} – Skipping. Today doesn't match frequency preference (${morning_review_frequency})`,
+        );
+        continue;
       }
 
       // All users who are is_active should have a training plan
