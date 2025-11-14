@@ -369,6 +369,7 @@ ${formattedRecentActivities.join(", ")}
 Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
 Give brief feedback on my recent activity, if any.
 Give advice on exactly what to do today in regards to my training plan you created for me, taking into account my recent activity.
+Adapt the training plan based on my recent activity, if necessary.
 If the training plan suggests a run, provide a specific distance and target pace.
 You can specify high-level negative splits if applicable.
 `;
