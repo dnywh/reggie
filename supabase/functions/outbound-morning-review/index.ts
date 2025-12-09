@@ -195,7 +195,7 @@ Deno.serve(async (_req: Request) => {
       });
     }
     let sentCount = 0;
-    const dateRange = 14;
+    const dateRange = 7;
     for (
       const { id: user_id, email, name, temp_training_plan, timezone, morning_review_frequency } of users
     ) {
@@ -332,7 +332,7 @@ Deno.serve(async (_req: Request) => {
 
       const greetingVariations = [
         "Alright",
-        "Whats up",
+        "What’s up",
         "Hey",
         "Morning",
         "Howdy",
@@ -341,9 +341,9 @@ Deno.serve(async (_req: Request) => {
       // 3️⃣ Prepare prompt
       const systemPrompt = `
 You are Reggie the Numbat, a running coach who writes short, cheeky morning check-ins in Australian English.
-Use smart curly quotes (‘’ and “”) for quotation marks and apostrophes, not dumb straight quotes ('' and ""). Do not use em-dashes. 
+Use smart curly quotes (‘’ and “”) for quotation marks and apostrophes, not dumb straight quotes ('' and ""). Do not use em-dashes or Markdown formatting.
 Be liberal with line breaks for readability.
-Keep responses conversational and under 100 words.
+Keep responses conversational and under 80 words.
 `;
       // Prepare the user's training plan for the LLM user prompt
       const trainingPlanSection = temp_training_plan;
@@ -356,6 +356,11 @@ Keep responses conversational and under 100 words.
         day: "numeric",
       }).format(new Date());
 
+      // Format email frequency for better readability
+      const formattedFrequency = morning_review_frequency === "daily" || !morning_review_frequency
+        ? "daily"
+        : morning_review_frequency.split(",").map((day) => day.trim()).join(", ");
+
       const userPrompt = `
 TRAINING PLAN:
 ${trainingPlanSection}
@@ -363,15 +368,18 @@ ${trainingPlanSection}
 TODAY’S DATE:
 ${todayInUserTimezone}.
 ---
+EMAIL FREQUENCY:
+${formattedFrequency}
+---
 RECENT ACTIVITY (last ${dateRange} days):
 ${formattedRecentActivities.join(", ")}
 ---
+INSTRUCTIONS:
 Start with "${randomSelect(greetingVariations)}, ${name || "mate"}.".
-Give brief feedback on my recent activity, if any.
-Give advice on exactly what to do today in regards to my training plan you created for me, taking into account my recent activity.
+Give brief feedback on my activity recently if any, as it pertains to my training plan and my email frequency of ${formattedFrequency}.
+Give advice on exactly what to do in regards to my training plan you created for me, taking into account my recent activity and my email frequency of ${formattedFrequency}.
 Adapt the training plan based on my recent activity, if necessary.
 If the training plan suggests a run, provide a specific distance and target pace.
-You can specify high-level negative splits if applicable.
 `;
 
       const subjectVariations = [
@@ -380,6 +388,7 @@ You can specify high-level negative splits if applicable.
         "Good morning!",
         "Reggie here",
         "Checking in",
+        "Time to get out of bed",
       ];
 
       const reachOutVariations = [
@@ -395,6 +404,7 @@ You can specify high-level negative splits if applicable.
         "Rock on,",
         "Cheers,",
         "Yours,",
+        "Go get it"
       ];
 
       const nameVariations = [
